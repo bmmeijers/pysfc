@@ -1,12 +1,12 @@
 import unittest
 
-#from newapi import henc, hdec
-from hilbert import encode as henc, decode as hdec
-#from newapi import nenc, ndec
-from morton_norder import encode as nenc, decode as ndec
+from pysfc.newapi import henc, hdec
+#from pysfc.hilbert import encode as henc, decode as hdec
+from pysfc.newapi import nenc, ndec
+#from pysfc.morton_norder import encode as nenc, decode as ndec
 
 maxside = 2**2
-#maxside = 2**3
+maxside = 2**3
 #maxside = 2**4
 
 

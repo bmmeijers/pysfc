@@ -1,9 +1,11 @@
 import unittest
-from relate import ndbox
-from newapi import hquery
-from newapi import nquery
-from query_brute import brute
-from range_pack import filter_ranges_by_gapsize
+from pysfc.relate import ndbox
+#from pysfc.newapi import hquery
+from pysfc.newapi import hquery
+from pysfc.newapi import nquery
+from pysfc.query_brute import brute
+from pysfc.range_pack import filter_ranges_by_gapsize
+
 
 def is_sorted(seq):
     "Returns whether a sequence is sorted"
