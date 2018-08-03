@@ -1,9 +1,10 @@
-"""Brute force querying
+"""Brute force querying, by converting every coordinate
+to its key, and then sorting all keys
 """
 
-from hilbert import encode as hencode
-from morton_norder import encode as nencode
-from morton_zorder import encode as zencode
+from newapi import henc as hencode
+from newapi import nenc as nencode
+#from morton_zorder import encode as zencode
 
 from relate import ndbox
 
@@ -48,7 +49,7 @@ def brute(query, tp = 'h'):
         along_dims.append(along_d)
 
     # we obtain the Cartesian product of all the dimensions
-    # and for each value we map the coordinate to the hilbert value
+    # and for each value we map the coordinate to the sfc key value
     ranges =[]
     for c in product(*along_dims):
         start = enc(c)
@@ -95,8 +96,33 @@ def _test_small():
 
 if __name__ == "__main__":
 
-    query = ndbox([1066052,1642769,1899], [1083529,1677722,2057])
-    diffs = compute_deltas(query)
-    print diffs
-    print howmany(diffs)
+#    query = ndbox([1066052,1642769,1899], [1083529,1677722,2057])
+#    diffs = compute_deltas(query)
+#    print diffs
+#    print howmany(diffs)
+
+
+#    query = ndbox([0, 0], [8, 8])
+#    # hilbert-order
+#    hranges = brute(query, 'h')
+##    assert hranges == [(2, 3), (7, 8), (8, 9), (13, 14)]
+##    print hranges
+#    # n-order
+#    nranges = brute(query, 'n')
+##    assert nranges == [(3, 4), (6, 7), (9, 10), (12, 13)]
+#    print nranges
+
+
+#    print brute(query=ndbox([0, 0], [8, 8]), tp='n')
+#    print brute(query=ndbox([1, 1], [4, 4]), tp='n')
+#    print brute(query=ndbox([1, 1], [3, 6]), tp='n')
+#    print brute(query=ndbox([1, 1], [3, 3]), tp='n')
+
+#    print brute(query=ndbox([0, 0], [8, 8]), tp='h')
+#    print brute(query=ndbox([1, 1], [4, 4]), tp='h')
+#    print brute(query=ndbox([1, 1], [3, 6]), tp='h')
+#    print brute(query=ndbox([1, 1], [3, 3]), tp='h')
+
+
+    print brute(query=ndbox([0, 2], [2, 4]), tp='h')
 

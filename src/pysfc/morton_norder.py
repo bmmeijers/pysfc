@@ -12,13 +12,13 @@ def decode(val, ndims=2):
 #    print 'd:', path
     # convert the path into nd Coordinate
     result = tuple(transpose_bits(path, ndims))
+    print val, path, result
     return result
 
 
 def encode(coords):
     """Encode a nD coordinate as N-order Morton code"""
     nD = len(coords)
-    # biggest = reduce( max, coords )  # the max of all coords
     biggest = max(coords)
     nChunks = max(1, int(ceil(log(biggest + 1, 2))))  # max nr of bits needed
     path = transpose_bits(coords, nChunks)
@@ -26,6 +26,7 @@ def encode(coords):
 #    print 'en:', path
     result = path_to_mortoncode(path, nChunks, nD)
 #    print 'result', result
+    print coords, path, result
     return result
 
 
@@ -86,7 +87,7 @@ def transpose_bits(srcs, nDests):
     # Break srcs down most-significant value first, shifting up:
     for j in range(nDests - 1, -1, -1): # (to first deal with y, then with x)
         dest = 0
-        for k in xrange(nSrcs): # FIXME: Check is this same code as in HILBERT.PY 
+        for k in range(nSrcs): # FIXME: Check is this same code as in HILBERT.PY 
             dest = dest * 2 + srcs[k] % 2
             srcs[k] /= 2 # divide by two, i.e. shift right (>>) with 1
         dests[j] = dest
@@ -169,9 +170,13 @@ if __name__ == "__main__":
 # | \|    
 # 0  2    8
 
+#    import doctest
+#    doctest.testmod()
 
-    import doctest
-    doctest.testmod()
+#    _test_small()
+#    _test_lengthy(maxside = 2**4)
 
-    _test_small()
-    _test_lengthy(maxside = 2**4)
+
+    encode((7,9,15))
+    decode(1903,3)
+

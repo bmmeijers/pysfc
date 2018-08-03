@@ -52,18 +52,19 @@ def filter_ranges_by_gapsize(ranges, max_gap_size=0):
     """
     if len(ranges) == 0:
         return []
-    filtered = []
-    (range_start, range_end) = ranges[0]
-    for idx in range(1, len(ranges)):
-        cur_range = ranges[idx]
-        gap_size = cur_range[0] - range_end
-        if gap_size <= max_gap_size:
-            range_end = cur_range[1]
-        else:
-            filtered.append((range_start, range_end))
-            (range_start, range_end) = cur_range
-    filtered.append((range_start, range_end))
-    return filtered
+    else:
+        filtered = []
+        (range_start, range_end) = ranges[0]
+        for idx in range(1, len(ranges)):
+            cur_range = ranges[idx]
+            gap_size = cur_range[0] - range_end
+            if gap_size <= max_gap_size:
+                range_end = cur_range[1]
+            else:
+                filtered.append((range_start, range_end))
+                (range_start, range_end) = cur_range
+        filtered.append((range_start, range_end))
+        return filtered
 
 
 

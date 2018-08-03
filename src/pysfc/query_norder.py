@@ -5,6 +5,8 @@ from collections import deque
 from traversal import path_to_morton
 from traversal import nary
 
+from morton_norder import transpose_bits
+
 
 def nquery(query, maxdepth=None, maxbits=63):
     """Query with N-order curve
@@ -23,6 +25,7 @@ def nquery(query, maxdepth=None, maxbits=63):
                             # FIXME: the numbering of levels starts at 1, however,
                             # for searching that leads to a strange condition that
                             # needs order + 1
+    mbits = maxbits / dim
 
     # -- determine how deep to go at maximum
     if maxdepth is None:
@@ -39,12 +42,39 @@ def nquery(query, maxdepth=None, maxbits=63):
     #  level of the node in the tree,
     #  path traversed -- N-codes of the parents)
     traverse_child_order = range(nary(dim))
+    #root = (None, 1, ())
     root = (None, ndbox(l_root, h_root), 1, ())
     deq = deque([root])
     result = []
     while deq:
         #
+        # _, cur_level, cur_path = deq.popleft()
         _, cur_node, cur_level, cur_path = deq.popleft()
+
+
+
+        # derive cur_node from cur_path (path with nchunk's)
+        # determine the size of a cell at this depth
+        _path = [0] * mbits
+        i = 0
+        v = 0
+        for i, v in enumerate(cur_path):
+            _path[i] = v
+        lo = transpose_bits(_path, dim)
+        #
+        range_width_at_depth = 2**(mbits - len(cur_path))
+        hi = [_ + range_width_at_depth for _ in lo]
+        new_cur_node = ndbox(lo, hi)
+        del lo
+        del hi
+        del i
+        del v
+        del _path
+        # 
+
+#        print cur_node
+#        print new_cur_node, cur_path
+#        print ""
 
         # compare the query geometry to the node
         # derive the relationship based on the geometry
@@ -83,4 +113,7 @@ def nquery(query, maxdepth=None, maxbits=63):
 
 
 if __name__ == "__main__":
-    print nquery(query=ndbox([0, 0], [1025, 1025]), maxdepth=None)
+    print nquery(query=ndbox([0, 0], [8, 8]))
+    print nquery(query=ndbox([1, 1], [4, 4]))
+    print nquery(query=ndbox([1, 1], [3, 6]))
+    print nquery(query=ndbox([1, 1], [3, 3]))

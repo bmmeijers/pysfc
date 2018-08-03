@@ -27,8 +27,12 @@ def decode(val, nD=2):  # Default is the 2D Hilbert walk.
         start, end = child_start_end(start, end, mask, i)
 #    print "d: index chunks", index_chunks
 #    print "d: coord chunks", coord_chunks
+
+
 #    return tuple(pack_coords(coord_chunks, nD)), coord_chunks, index_chunks, val
-    return tuple(pack_coords(coord_chunks, nD))
+    ndcoord = tuple(pack_coords(coord_chunks, nD))
+    print val, index_chunks, coord_chunks, ndcoord
+    return ndcoord
 
 
 def encode(coords):
@@ -48,7 +52,9 @@ def encode(coords):
 #    print "e: index chunks", index_chunks # << in the n-ary tree this is the local Hilbert identifier 
     # (Note, it is *not* possible to us this index value to know which field you are in (as is the case with morton) how the curve was oriented previously has an influence on this...)!
 #    return coords, coord_chunks, index_chunks, pack_index(index_chunks, nD)
-    return pack_index(index_chunks, nD)
+    val = pack_index(index_chunks, nD)
+    print coords, coord_chunks, index_chunks, val
+    return val
 
 def initial_start_end(nChunks, nD):
     # This orients the largest cube so that
@@ -263,6 +269,8 @@ def _test_first_step_in_x():
 
 
 if __name__ == "__main__":
-    _test_lengthy(maxside = 2**4)
-    _test_first_step_in_x()
+#    _test_lengthy(maxside = 2**4)
+#    _test_first_step_in_x()
+    decode(2049, 3)
+    encode((7,9,15))
 
