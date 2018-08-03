@@ -194,10 +194,10 @@ def initial_start_end(nChunks, nD):
     return 0, 2**((-nChunks - 1) % nD)  # in Python 0 <=   a % b   < b.
 
 
-def _hchunks_nchunks(hchunks, ndims):
+def _hchunks_to_nchunks(hchunks, mbits, ndims):
     hchunks_len = len(hchunks)
     mask = 2 ** ndims - 1 # number with all bits set to 1, with ndims bits, e.g. ndims = 3 == 0b111
-    start, end = initial_start_end(hchunks_len, ndims)
+    start, end = initial_start_end(mbits, ndims)
     nchunks = [0] * hchunks_len
     for j in range(hchunks_len):
         i = hchunks[j]
@@ -206,15 +206,16 @@ def _hchunks_nchunks(hchunks, ndims):
     return tuple(nchunks)
 
 
-def _nchunks_hchunks(nchunks, ndims):
+def _nchunks_to_hchunks(nchunks, mbits, ndims):
     nchunks_len = len(nchunks)
     mask = 2 ** ndims - 1 # a number with all bits set to 1 and has as many bits as there are dimensions, so for 2D the mask is 11, for 3D: 111, for 4D: 1111, etc.
-    start, end = initial_start_end(nchunks_len, ndims)
+    start, end = initial_start_end(mbits, ndims)
+#    print start, end
     hchunks = [0] * nchunks_len
-    for j in range(nchunks_len):
-        i = gray_decode_travel(start, end, mask, nchunks[j]) # << coord_chunks[j] :=> NORDER VALUE
-        hchunks[j] = i
-        start, end = child_start_end(start, end, mask, i) # << i :=> CURRENT HINDEX 
+    for j, nchunk in enumerate(nchunks):
+        hchunk = gray_decode_travel(start, end, mask, nchunk) # << coord_chunks[j] :=> NORDER VALUE
+        hchunks[j] = hchunk
+        start, end = child_start_end(start, end, mask, hchunk) # << i :=> CURRENT HINDEX 
     return tuple(hchunks)
 
 
@@ -262,7 +263,7 @@ def henc(coord):
     ndims = len(coord)
     #
     nchunks = _coord_nchunks(coord, mbits)
-    hchunks = _nchunks_hchunks(nchunks, ndims)
+    hchunks = _nchunks_to_hchunks(nchunks, mbits, ndims)
     key = _hchunks_key(hchunks, mbits, ndims)
     return key
 
@@ -271,7 +272,7 @@ def hdec(key, ndims):
     mbits = _determine_bits(key, 2**ndims)
     #
     hchunks = _key_hchunks(key, mbits, ndims)
-    nchunks = _hchunks_nchunks(hchunks, ndims)
+    nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
     coord = _nchunks_coord(nchunks, ndims)
 #    print mbits, hchunks, nchunks, coord
     return tuple(coord)
@@ -290,8 +291,8 @@ def hchunk_table():
     print "{:>5} + {:>15} + {:>15} + {:>12}".format("-" * 5, "-" * 15, "-" * 15, "-" * 12)
     for hpath in list(product(*[hchunks] * length)):
         key = _hchunks_key(hpath, ndims)
-        npath = _hchunks_nchunks(hpath, ndims)
-        coord = _nchunks_coord(npath, ndims)
+        npath = _hchunks_to_nchunks(hpath, ndims)
+        coord = _nchunks_to_coord(npath, ndims)
         print "{:>5} | {:>15} | {:>15} | {:>12}".format(key, hpath, npath, coord)
 
 def nchunk_table():
@@ -417,8 +418,8 @@ def hquery(query):
         lo = map(lambda x: x*range_width_at_depth, lo)
         hi = map(lambda x: x+range_width_at_depth, lo)
         cur_node = ndbox(lo, hi)
-        print cur_node
         ndcmp = relate(query, cur_node)
+        print cur_node, ndcmp, npath
         if ndcmp in (0, 1,):
             paths.append(npath)
         # -- partial overlap
@@ -426,10 +427,16 @@ def hquery(query):
             # FIXME: re-introduce maxdepth argument ?
             if cur_level < mbits_needed:
                 # we have not yet reached the lowest level, recurse
+                childs = []
                 for ncode in range(2**ndims):
                     new_path = npath + (ncode, )
+                    hpath = _nchunks_to_hchunks(new_path, mbits_needed, ndims)
+                    hcode = _hchunks_key(hpath, mbits_needed, ndims)
+                    childs.append((hcode, new_path))
+                childs.sort(key=itemgetter(0))
+                for child in childs:
 #                    deq.append(new_path)
-                    stack.append(new_path)
+                    stack.append(child[1])
 ###                childs = []
 ###                for ncode in range(2**ndims):
 ###                    # should we compute a hilbert code here for the childs, sort on it and stack them in this order?
@@ -451,142 +458,26 @@ def hquery(query):
     result = []
     while paths:
         npath = paths.pop()
-        hpath = _nchunks_hchunks(npath, ndims)
+        hpath = _nchunks_to_hchunks(npath, mbits_needed, ndims)
         start = _hchunks_key(hpath, mbits_needed, ndims)
         side_at_depth = 2**(mbits_needed - len(npath))
         range_size = side_at_depth**2
         end = start + range_size
         result.append((start, end))
-#    result.sort(key=itemgetter(0))
-    print result
     #
     return result
 
 
-
-
-
-
-def path_to_hilbert(path, nD, order):
-    """Given a traversed path in the tree (with integers that represent h-codes),
-    determine the hilbert code that starts in this box of the path
-    """
-    level = len(path)
-    # width: the size of the range belonging to this node at this level
-    width = 2**(nD*(order-level))
-    hcode = pack_index(path, nD) * width
-    return hcode, hcode + width 
-
-def hquery_new(query):
-    maxbits = 63
-    ndims = query.dims
-    # get how many bits we need
-    # to represent the largest number inside the query box
-    # --> 2**(mbits_needed) is the maximum size of a side 
-    #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi)-1, ndims)
-    print mbits_needed, "tree levels"
-    hmask = 2 ** ndims - 1
-    print hmask, bin(hmask)
-    cur_hstart, cur_hend = initial_start_end(mbits_needed, ndims)
-    print cur_hstart, cur_hend
-
-#    mbits = maxbits // ndims
-    npath = ()
-#   Post order tree traversal gives nodes in order we want, pseudo-code:
-#
-#    Push root into Stack_One.
-#    while(Stack_One is not empty)
-#        Pop the node from Stack_One and push it into Stack_Two.
-#        Push the left and right child nodes of popped node into Stack_One.
-#    End Loop
-#    Pop out all the nodes from Stack_Two and print it.
-#    -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
-#   Here: Stack_One = stack & Stack_Two = paths
-    paths = []
-#    deq = deque([root])
-#    while deq:
-#    stack = deque([npath])
-    stack = [(npath, (cur_hstart, cur_hend))]
-    while stack:
-        npath, (cur_hstart, cur_hend) = stack.pop() 
-#        npath = stack.popleft()
-        cur_level = len(npath)
-        lo = _nchunks_coord(npath, ndims)
-        # side_size_at_depth how large is a side of the cube at this depth?
-        range_width_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x*range_width_at_depth, lo)
-        hi = map(lambda x: x+range_width_at_depth, lo)
-        cur_node = ndbox(lo, hi)
-
-        ndcmp = relate(query, cur_node)
-        print cur_node, ndcmp
-        if ndcmp in (0, 1,):
-            paths.append(npath)
-        # -- partial overlap
-        elif ndcmp in (2,):
-            # FIXME: re-introduce maxdepth argument ?
-            if cur_level < mbits_needed:
-                childs = []
-                for ncode in range(ndims**2):
-                    hcode = gray_decode_travel(cur_hstart, cur_hend, hmask, ncode)
-                    new_path = npath + (ncode, )
-                    next_start, next_end = child_start_end(cur_hstart, cur_hend, hmask, hcode)
-                    childs.append(
-                        (hcode, new_path, (next_start, next_end))
-                    )
-                childs.sort(key=itemgetter(0))
-                for child in childs:
-                    stack.append(child[1:])
-
-#                # we have not yet reached the lowest level, recurse
-#                for ncode in range(2**ndims):
-#                    new_path = npath + (ncode, )
-##                    deq.append(new_path)
-#                    stack.append(
-#                        (new_path, (cur_hstart, cur_hend))
-#                    )
-###                childs = []
-###                for ncode in range(2**ndims):
-###                    # should we compute a hilbert code here for the childs, sort on it and stack them in this order?
-###                    new_npath = npath + (ncode, )
-###                    new_hpath = _nchunks_hchunks(new_npath, ndims)
-###                    childs.append((new_hpath[-1], new_npath))
-####                    deq.append(new_path)
-###                childs.sort(key=itemgetter(0))
-###                for _, new_npath in childs:
-###                    stack.append(new_npath)
-            else:
-                # we are not allowed to go further, so use this partial
-                # overlapping range as is
-                paths.append(npath)
-        # -- disjoint, we do not need to process further this path down the tree
-        elif ndcmp in (-1,):
-            continue
-    #
-    result = []
-    while paths:
-        npath = paths.pop()
-        hpath = _nchunks_hchunks(npath, ndims)
-        start = pack_index(hpath, ndims)
-
-        side_at_depth = 2**(mbits_needed - len(npath))
-        range_size = side_at_depth**2
-        start = _hchunks_key(hpath, len(hpath), ndims)+1
-
-        print "path to hilbert", path_to_hilbert(hpath, ndims, mbits_needed)
-        print npath, hpath, start, range_size
-        end = start + range_size
-        result.append((start, end))
-#    result.sort(key=itemgetter(0))
-    print result
-    #
-    return result
 
 if __name__ == "__main__":
+    pass
+    ndims = 2
+    for i in range(4):
+        for j in range(4):
+            print [i, j], _nchunks_to_hchunks([i, j], ndims)
 
-    print hdec(4, 2)
-
+    
+#    print hquery(query=ndbox([0, 2], [2, 4]))
 #    print nchunk_table()
 
 #    print _nchunks_key((1,3,0), 3, 2)
