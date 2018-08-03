@@ -6,7 +6,7 @@ from hilbert import encode as henc, decode as hdec
 from morton_norder import encode as nenc, decode as ndec
 
 maxside = 2**2
-maxside = 2**3
+#maxside = 2**3
 #maxside = 2**4
 
 
