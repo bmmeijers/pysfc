@@ -1,6 +1,5 @@
 import unittest
 from pysfc.relate import ndbox
-#from pysfc.newapi import hquery
 from pysfc.newapi import hquery
 from pysfc.newapi import nquery
 from pysfc.query_brute import brute
@@ -33,28 +32,28 @@ class TestSorted(unittest.TestCase):
 
 
 boxes2d = [
-    # cube2x2; the 4 main boxes, 1x1
+    # cube2d 2x2; the 4 main boxes, 1x1
     ndbox([0, 0], [1, 1]),
     ndbox([0, 1], [1, 2]),
     ndbox([1, 0], [2, 1]),
     ndbox([1, 1], [2, 2]),
 
-    # cube4x4; the 4 main boxes, 2x2
+    # cube2d 4x4; the 4 main boxes, 2x2
     ndbox([0, 0], [2, 2]),
     ndbox([2, 2], [4, 4]),
     ndbox([0, 2], [2, 4]),
     ndbox([2, 0], [4, 2]),
 
-    # cube4x4; a center box, 2x2
+    # cube2d 4x4; a center box, 2x2
     ndbox([1, 1], [3, 3]),
 
-    # cube4x4; halves of the cube, 4x2 | 2x4
+    # cube2d 4x4; halves of the cube, 4x2 | 2x4
     ndbox([0, 0], [4, 2]),
     ndbox([0, 2], [4, 4]),
     ndbox([0, 0], [2, 4]),
     ndbox([2, 0], [4, 4]),
 
-    # cube4x4; 2x3 | 3x2
+    # cube2d 4x4; 2x3 | 3x2
     ndbox([0, 0], [2, 3]),
     ndbox([2, 0], [4, 3]),
     ndbox([0, 1], [2, 4]),
@@ -66,26 +65,90 @@ boxes2d = [
     ndbox([0, 1], [3, 3]),
     ndbox([1, 0], [4, 3]),
 
-    # cube4x4; arbitrary boxes
+    # cube2d 4x4; arbitrary boxes
     ndbox([1, 1], [4, 4]),
     ndbox([0, 1], [2, 4]),
     ndbox([2, 0], [4, 3]),
 
-    # cube8x8; center
+    # cube2d 8x8; center
     ndbox([3, 3], [5, 5]),
-    # cube8x8; left
+    # cube2d 8x8; left
     ndbox([1, 1], [3, 7]),
-    # cube8x8; right
+    # cube2d 8x8; right
     ndbox([5, 2], [7, 4]),
 ]
 
+boxes3d = [
+    # cube3d; the 8 main boxes, 1x1x1
+    ndbox([0, 0, 0], [1, 1, 1]),
+    ndbox([0, 0, 1], [1, 1, 2]),
+    ndbox([0, 1, 0], [1, 2, 1]),
+    ndbox([0, 1, 1], [1, 2, 2]),
+    ndbox([1, 0, 0], [2, 1, 1]),
+    ndbox([1, 0, 1], [2, 1, 2]),
+    ndbox([1, 1, 0], [2, 2, 1]),
+    ndbox([1, 1, 1], [2, 2, 2]),
 
-class TestAgainstBrute2D(unittest.TestCase):
+    # cube3d; boxes of 2x2x2
+    ndbox([0, 0, 0], [2, 2, 2]),
+    ndbox([0, 0, 2], [2, 2, 4]),
+    ndbox([2, 2, 0], [4, 4, 2]),
+    ndbox([2, 2, 2], [4, 4, 4]),
+    ndbox([0, 2, 0], [2, 4, 2]),
+    ndbox([0, 2, 2], [2, 4, 4]),
+    ndbox([2, 0, 0], [4, 2, 2]),
+    ndbox([2, 0, 2], [4, 2, 4]),
+
+    # cube3d; center box of 2x2x2
+    ndbox([1, 1, 1], [3, 3, 3]),
+]
+
+boxes4d = [
+    # cube4d; the 16 small boxes, 1x1x1x1
+    ndbox([0, 0, 0, 0], [1, 1, 1, 1]),
+    ndbox([0, 0, 1, 1], [1, 1, 2, 2]),
+    ndbox([0, 0, 0, 0], [1, 1, 1, 1]),
+    ndbox([0, 0, 1, 1], [1, 1, 2, 2]),
+    ndbox([0, 1, 0, 0], [1, 2, 1, 1]),
+    ndbox([0, 1, 1, 1], [1, 2, 2, 2]),
+    ndbox([0, 1, 0, 0], [1, 2, 1, 1]),
+    ndbox([0, 1, 1, 1], [1, 2, 2, 2]),
+    ndbox([1, 0, 0, 0], [2, 1, 1, 1]),
+    ndbox([1, 0, 1, 1], [2, 1, 2, 2]),
+    ndbox([1, 0, 0, 0], [2, 1, 1, 1]),
+    ndbox([1, 0, 1, 1], [2, 1, 2, 2]),
+    ndbox([1, 1, 0, 0], [2, 2, 1, 1]),
+    ndbox([1, 1, 1, 1], [2, 2, 2, 2]),
+    ndbox([1, 1, 0, 0], [2, 2, 1, 1]),
+    ndbox([1, 1, 1, 1], [2, 2, 2, 2]),
+
+    # cube4d; boxes of 2x2x2
+    ndbox([0, 0, 0, 0], [2, 2, 2, 2]),
+    ndbox([0, 0, 2, 2], [2, 2, 4, 4]),
+    ndbox([0, 0, 0, 0], [2, 2, 2, 2]),
+    ndbox([0, 0, 2, 2], [2, 2, 4, 4]),
+    ndbox([2, 2, 0, 0], [4, 4, 2, 2]),
+    ndbox([2, 2, 2, 2], [4, 4, 4, 4]),
+    ndbox([2, 2, 0, 0], [4, 4, 2, 2]),
+    ndbox([2, 2, 2, 2], [4, 4, 4, 4]),
+    ndbox([0, 2, 0, 0], [2, 4, 2, 2]),
+    ndbox([0, 2, 2, 2], [2, 4, 4, 4]),
+    ndbox([0, 2, 0, 0], [2, 4, 2, 2]),
+    ndbox([0, 2, 2, 2], [2, 4, 4, 4]),
+    ndbox([2, 0, 0, 0], [4, 2, 2, 2]),
+    ndbox([2, 0, 0, 2], [4, 2, 2, 4]),
+    ndbox([2, 0, 2, 0], [4, 2, 4, 2]),
+    ndbox([2, 0, 2, 2], [4, 2, 4, 4]),
+]
+
+
+class TestQueryFrameworkND(unittest.TestCase):
+    "Testing the query functionality"
 
     def setUp(self):
-        self.boxes = boxes2d
+        self.boxes = boxes2d + boxes3d + boxes4d
 
-    def test_brute(self):
+    def test_against_brute(self):
         "Compare against brute-force computation"
         for tp, func in (('h', hquery), ('n', nquery)):
             for box in self.boxes:
@@ -98,12 +161,6 @@ class TestAgainstBrute2D(unittest.TestCase):
                 expected = filter_ranges_by_gapsize(expected)
                 obtained = filter_ranges_by_gapsize(obtained)
                 assert expected == obtained, "{} {} {} {}".format(box, expected, obtained, func)
-
-
-class TestQueryFramework2D(unittest.TestCase):
-
-    def setUp(self):
-        self.boxes = boxes2d
 
     def test_sorted(self):
         "Ranges sorted by their start"
@@ -118,19 +175,6 @@ class TestQueryFramework2D(unittest.TestCase):
             for box in self.boxes:
                 result = query(box)
                 assert all([end > start for start, end in result]), "{} {} {}".format(result, query, box)
-
-
-#    def test_given_queries(self):
-#        "Some Hilbert queries with answers"
-#        hilbert_queries = [
-#            (ndbox([1, 1], [4, 4]), [(2, 3), (6, 7), (7, 8), (8, 12), (12, 13), (13, 14)]),
-#            (ndbox([0, 1], [2, 4]), [(2, 3), (3, 4), (4, 8)]),
-#            (ndbox([2, 0], [4, 3]), [(8, 9), (11, 12), (12, 16)]),
-#        ]
-
-#        for box, expected in hilbert_queries:
-#            obtained = query(box)
-#            assert expected == obtained, "exp {} != obt {}".format(expected, obtained)
 
 
 if __name__ == "__main__":

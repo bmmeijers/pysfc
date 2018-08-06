@@ -46,13 +46,19 @@ def _transpose_bits(srcs, nDests):
 
 def _chunks_key(chunks, mbits, ndims):
     key = 0
+    nd = 2**ndims
     for m in range(mbits):
         if m >= len(chunks):
             chunk = 0
         else:
             chunk = chunks[m]
-        key = key * 2**ndims + chunk
+        key = key * nd + chunk
     return key
+
+# equivalent code:
+#def pack_index(chunks, nD):
+#    p = 2**nD  # Turn digits mod 2**nD back into a single number:
+#    return reduce(lambda n, chunk: n * p + chunk, chunks)
 
 
 _coord_nchunks = _transpose_bits # args: nDests = mbits
@@ -196,26 +202,28 @@ def initial_start_end(nChunks, nD):
 
 def _hchunks_to_nchunks(hchunks, mbits, ndims):
     hchunks_len = len(hchunks)
-    mask = 2 ** ndims - 1 # number with all bits set to 1, with ndims bits, e.g. ndims = 3 == 0b111
+    # number with all bits set to 1, with ndims bits, 
+    # e.g. ndims:
+    # 2 == 0b11
+    # 3 == 0b111
+    # 4 == ...
+    mask = 2 ** ndims - 1 
     start, end = initial_start_end(mbits, ndims)
     nchunks = [0] * hchunks_len
-    for j in range(hchunks_len):
-        i = hchunks[j]
-        nchunks[j] = gray_encode_travel(start, end, mask, i)
-        start, end = child_start_end(start, end, mask, i)
+    for j, hchunk in enumerate(hchunks):
+        nchunks[j] = gray_encode_travel(start, end, mask, hchunk)
+        start, end = child_start_end(start, end, mask, hchunk)
     return tuple(nchunks)
 
 
 def _nchunks_to_hchunks(nchunks, mbits, ndims):
     nchunks_len = len(nchunks)
-    mask = 2 ** ndims - 1 # a number with all bits set to 1 and has as many bits as there are dimensions, so for 2D the mask is 11, for 3D: 111, for 4D: 1111, etc.
+    mask = 2 ** ndims - 1
     start, end = initial_start_end(mbits, ndims)
-#    print start, end
     hchunks = [0] * nchunks_len
     for j, nchunk in enumerate(nchunks):
-        hchunk = gray_decode_travel(start, end, mask, nchunk) # << coord_chunks[j] :=> NORDER VALUE
-        hchunks[j] = hchunk
-        start, end = child_start_end(start, end, mask, hchunk) # << i :=> CURRENT HINDEX 
+        hchunks[j] = gray_decode_travel(start, end, mask, nchunk)
+        start, end = child_start_end(start, end, mask, hchunks[j])
     return tuple(hchunks)
 
 
@@ -229,11 +237,6 @@ def _key_hchunks(key, mbits, ndims):
         hchunks[j] = key % p
         key /= p
     return hchunks
-
-
-def pack_index(chunks, nD):
-    p = 2**nD  # Turn digits mod 2**nD back into a single number:
-    return reduce(lambda n, chunk: n * p + chunk, chunks)
 
 
 # Public api, encode and decode, n-order (nenc+ndec) and hilbert (henc + hdec)
@@ -278,40 +281,6 @@ def hdec(key, ndims):
     return tuple(coord)
 
 
-def hchunk_table():
-    # * Route for Hilbert:
-    #
-    # coord <> nchunks <> hchunks <> key
-    ndims = 2
-    ct = 2**ndims
-    hchunks = range(ct)
-    from itertools import product
-    length = 2 # path length (how many chunks)
-    print "{:>5} | {:>15} | {:>15} | {:>12}".format("hkey", "hpath", "npath", "coord")
-    print "{:>5} + {:>15} + {:>15} + {:>12}".format("-" * 5, "-" * 15, "-" * 15, "-" * 12)
-    for hpath in list(product(*[hchunks] * length)):
-        key = _hchunks_key(hpath, ndims)
-        npath = _hchunks_to_nchunks(hpath, ndims)
-        coord = _nchunks_to_coord(npath, ndims)
-        print "{:>5} | {:>15} | {:>15} | {:>12}".format(key, hpath, npath, coord)
-
-def nchunk_table():
-    # * Route for Morton:
-    #
-    # coord <> nchunks <> key
-    ndims = 2
-    ct = 2**ndims
-    nchunks = range(ct)
-    from itertools import product
-    length = 3 # path length (how many chunks)
-    print "{:>5} | {:>15} | {:>12}".format("nkey", "npath", "coord")
-    print "{:->5} + {:->15} + {:->12}".format("", "", "")
-    for npath in list(product(*[nchunks] * length)):
-        key = _nchunks_key(npath, length, ndims)
-        coord = _nchunks_coord(npath, ndims)
-        print "{:>5} | {:>15} | {:>12}".format(key, npath, coord)
-
-
 def nquery(query):
     maxbits = 63
     ndims = query.dims
@@ -319,8 +288,7 @@ def nquery(query):
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi)-1, ndims)
-    print mbits_needed, "tree levels"
+    mbits_needed = _determine_bits(max(query.hi), ndims)
 #    mbits = maxbits // ndims
     npath = ()
 #   Post order tree traversal gives nodes in order we want, pseudo-code:
@@ -343,9 +311,9 @@ def nquery(query):
         cur_level = len(npath)
         lo = _nchunks_coord(npath, ndims)
         # side_size_at_depth how large is a side of the cube at this depth?
-        range_width_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x*range_width_at_depth, lo)
-        hi = map(lambda x: x+range_width_at_depth, lo)
+        side_at_depth = 2**(mbits_needed - cur_level)
+        lo = map(lambda x: x*side_at_depth, lo)
+        hi = map(lambda x: x+side_at_depth, lo)
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
         if ndcmp in (0, 1,):
@@ -374,11 +342,10 @@ def nquery(query):
         # -> this happens inside _nchunks_key
         start = _nchunks_key(npath, mbits_needed, ndims)
         side_at_depth = 2**(mbits_needed - len(npath))
-        range_size = side_at_depth**2
+        range_size = side_at_depth**ndims
         end = start + range_size
 #        print npath, start, end, range_size
         result.append((start, end))
-    print result
     return result
 
 
@@ -389,8 +356,7 @@ def hquery(query):
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi)-1, ndims)
-    print mbits_needed, "tree levels"
+    mbits_needed = _determine_bits(max(query.hi), ndims)
 #    mbits = maxbits // ndims
     npath = ()
 #   Post order tree traversal gives nodes in order we want, pseudo-code:
@@ -414,12 +380,11 @@ def hquery(query):
         cur_level = len(npath)
         lo = _nchunks_coord(npath, ndims)
         # side_size_at_depth how large is a side of the cube at this depth?
-        range_width_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x*range_width_at_depth, lo)
-        hi = map(lambda x: x+range_width_at_depth, lo)
+        side_at_depth = 2**(mbits_needed - cur_level)
+        lo = map(lambda x: x*side_at_depth, lo)
+        hi = map(lambda x: x+side_at_depth, lo)
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
-        print cur_node, ndcmp, npath
         if ndcmp in (0, 1,):
             paths.append(npath)
         # -- partial overlap
@@ -461,7 +426,7 @@ def hquery(query):
         hpath = _nchunks_to_hchunks(npath, mbits_needed, ndims)
         start = _hchunks_key(hpath, mbits_needed, ndims)
         side_at_depth = 2**(mbits_needed - len(npath))
-        range_size = side_at_depth**2
+        range_size = side_at_depth**ndims
         end = start + range_size
         result.append((start, end))
     #
