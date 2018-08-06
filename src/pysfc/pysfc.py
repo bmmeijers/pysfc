@@ -282,13 +282,13 @@ def hdec(key, ndims):
 
 
 def nquery(query):
-    maxbits = 63
+#    maxbits = 63
     ndims = query.dims
     # get how many bits we need
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), ndims)
+    mbits_needed = _determine_bits(max(query.hi)+1, ndims)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
@@ -340,13 +340,13 @@ def nquery(query):
 
 
 def hquery(query):
-    maxbits = 63
+#    maxbits = 63
     ndims = query.dims
     # get how many bits we need
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), ndims)
+    mbits_needed = _determine_bits(max(query.hi)+1, ndims)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
@@ -404,12 +404,13 @@ def hquery(query):
 
 if __name__ == "__main__":
     pass
-    ndims = 2
-    for i in range(4):
-        for j in range(4):
-            print [i, j], _nchunks_to_hchunks([i, j], ndims)
+#    ndims = 2
+#    for i in range(4):
+#        for j in range(4):
+#            print [i, j], _nchunks_to_hchunks([i, j], ndims)
 
-    
+    print hquery(ndbox((1, 1, 1, 1), (3, 3, 3, 3)))
+
 #    print hquery(query=ndbox([0, 2], [2, 4]))
 #    print nchunk_table()
 
