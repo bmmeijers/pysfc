@@ -101,6 +101,10 @@ boxes3d = [
 
     # cube3d; center box of 2x2x2
     ndbox([1, 1, 1], [3, 3, 3]),
+
+    # cube3d; horizontal 
+    ndbox([0, 0, 1], [4, 4, 2]),
+    ndbox([0, 0, 2], [4, 4, 3]),
 ]
 
 boxes4d = [
@@ -139,6 +143,9 @@ boxes4d = [
     ndbox([2, 0, 0, 2], [4, 2, 2, 4]),
     ndbox([2, 0, 2, 0], [4, 2, 4, 2]),
     ndbox([2, 0, 2, 2], [4, 2, 4, 4]),
+
+    # cube4d; center box of 2x2x2x2
+#    ndbox([1, 1, 1, 1], [3, 3, 3, 3]),
 ]
 
 
@@ -150,7 +157,7 @@ class TestQueryFrameworkND(unittest.TestCase):
 
     def test_against_brute(self):
         "Compare against brute-force computation"
-        for tp, func in (('h', hquery), ('n', nquery)):
+        for tp, func in (('h', hquery), ('n', nquery), ):
             for box in self.boxes:
                 expected = brute(box, tp)
                 obtained = func(box)
@@ -160,7 +167,7 @@ class TestQueryFrameworkND(unittest.TestCase):
                 # glue adjacent + consecutive ranges
                 expected = filter_ranges_by_gapsize(expected)
                 obtained = filter_ranges_by_gapsize(obtained)
-                assert expected == obtained, "{} {} {} {}".format(box, expected, obtained, func)
+                assert expected == obtained, "\n{}\n expected ranges: {}\n obtained ranges: {}\n function: {}".format(box, expected, obtained, func)
 
     def test_sorted(self):
         "Ranges sorted by their start"
