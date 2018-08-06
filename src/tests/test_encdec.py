@@ -1,13 +1,11 @@
 import unittest
 
-from pysfc.newapi import henc, hdec
-#from pysfc.hilbert import encode as henc, decode as hdec
-from pysfc.newapi import nenc, ndec
-#from pysfc.morton_norder import encode as nenc, decode as ndec
+from pysfc.pysfc import henc, hdec
+from pysfc.pysfc import nenc, ndec
 
 maxside = 2**2
-maxside = 2**3
-#maxside = 2**4
+# maxside = 2**3
+# maxside = 2**4
 
 
 class TestEncodingDecoding(unittest.TestCase):

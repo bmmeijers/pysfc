@@ -1,7 +1,7 @@
 import unittest
 from pysfc.relate import ndbox
-from pysfc.newapi import hquery
-from pysfc.newapi import nquery
+from pysfc.pysfc import hquery
+from pysfc.pysfc import nquery
 from pysfc.query_brute import brute
 from pysfc.range_pack import filter_ranges_by_gapsize
 

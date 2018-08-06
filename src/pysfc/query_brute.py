@@ -2,9 +2,8 @@
 to its key, and then sorting all keys
 """
 
-from newapi import henc as hencode
-from newapi import nenc as nencode
-#from morton_zorder import encode as zencode
+from pysfc import henc as hencode
+from pysfc import nenc as nencode
 
 from relate import ndbox
 

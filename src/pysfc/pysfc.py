@@ -21,8 +21,9 @@ from relate import ndbox, relate
 # coord -- nD coordinate with len() == ndims 
 # nchunks -- list of integers, where each int is location of cell to descend 
 #            (following the Morton N-order)
-# nchunks -- list of integers, where each int is location of cell to descend 
-#            (following the Hilbert order)
+# hchunks -- list of integers, where each int is location of cell to descend 
+#            (following the Hilbert order) 
+#            *Note*, this depends on depth of tree (mbits)
 # key -- Space Filling Curve key 
 #        (1D value, steps on the SFC from the start)
 #
@@ -277,7 +278,6 @@ def hdec(key, ndims):
     hchunks = _key_hchunks(key, mbits, ndims)
     nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
     coord = _nchunks_coord(nchunks, ndims)
-#    print mbits, hchunks, nchunks, coord
     return tuple(coord)
 
 
@@ -291,26 +291,17 @@ def nquery(query):
     mbits_needed = _determine_bits(max(query.hi), ndims)
 #    mbits = maxbits // ndims
     npath = ()
-#   Post order tree traversal gives nodes in order we want, pseudo-code:
-#
-#    Push root into Stack_One.
-#    while(Stack_One is not empty)
-#        Pop the node from Stack_One and push it into Stack_Two.
-#        Push the left and right child nodes of popped node into Stack_One.
-#    End Loop
-#    Pop out all the nodes from Stack_Two and print it.
-#    -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
-#   Here: Stack_One = stack & Stack_Two = paths
+    # post order tree traversal gives nodes in order we want
+    # for this, two stacks are used (stack + paths)
+    # -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
     paths = []
-#    deq = deque([root])
-#    while deq:
     stack = [npath]
     while stack:
         npath = stack.pop() 
-#        npath = deq.popleft()
         cur_level = len(npath)
         lo = _nchunks_coord(npath, ndims)
-        # side_size_at_depth how large is a side of the cube at this depth?
+        # side_at_depth 
+        # how large side of the nd-cube is at this depth
         side_at_depth = 2**(mbits_needed - cur_level)
         lo = map(lambda x: x*side_at_depth, lo)
         hi = map(lambda x: x+side_at_depth, lo)
@@ -320,12 +311,11 @@ def nquery(query):
             paths.append(npath)
         # -- partial overlap
         elif ndcmp in (2,):
-            # FIXME: re-introduce maxdepth argument ?
+            # FIXME: re-introduce maxdepth argument !
             if cur_level < mbits_needed:
                 # we have not yet reached the lowest level, recurse
                 for ncode in range(2**ndims):
                     new_path = npath + (ncode, )
-#                    deq.append(new_path)
                     stack.append(new_path)
             else:
                 # we are not allowed to go further, so use this partial
@@ -359,21 +349,10 @@ def hquery(query):
     mbits_needed = _determine_bits(max(query.hi), ndims)
 #    mbits = maxbits // ndims
     npath = ()
-#   Post order tree traversal gives nodes in order we want, pseudo-code:
-#
-#    Push root into Stack_One.
-#    while(Stack_One is not empty)
-#        Pop the node from Stack_One and push it into Stack_Two.
-#        Push the left and right child nodes of popped node into Stack_One.
-#    End Loop
-#    Pop out all the nodes from Stack_Two and print it.
-#    -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
-#   Here: Stack_One = stack & Stack_Two = paths
-    paths = []
-#    deq = deque([root])
-#    while deq:
-#    stack = deque([npath])
+    # post order tree traversal gives nodes in order we want
+    # for this, two stacks are used (stack + paths)
     stack = [npath]
+    paths = []
     while stack:
         npath = stack.pop() 
 #        npath = stack.popleft()
@@ -389,7 +368,7 @@ def hquery(query):
             paths.append(npath)
         # -- partial overlap
         elif ndcmp in (2,):
-            # FIXME: re-introduce maxdepth argument ?
+            # FIXME: re-introduce maxdepth argument !
             if cur_level < mbits_needed:
                 # we have not yet reached the lowest level, recurse
                 childs = []
@@ -400,18 +379,7 @@ def hquery(query):
                     childs.append((hcode, new_path))
                 childs.sort(key=itemgetter(0))
                 for child in childs:
-#                    deq.append(new_path)
                     stack.append(child[1])
-###                childs = []
-###                for ncode in range(2**ndims):
-###                    # should we compute a hilbert code here for the childs, sort on it and stack them in this order?
-###                    new_npath = npath + (ncode, )
-###                    new_hpath = _nchunks_hchunks(new_npath, ndims)
-###                    childs.append((new_hpath[-1], new_npath))
-####                    deq.append(new_path)
-###                childs.sort(key=itemgetter(0))
-###                for _, new_npath in childs:
-###                    stack.append(new_npath)
             else:
                 # we are not allowed to go further, so use this partial
                 # overlapping range as is
