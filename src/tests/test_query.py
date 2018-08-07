@@ -2,9 +2,11 @@ import unittest
 from pysfc.relate import ndbox
 from pysfc.pysfc import hquery
 from pysfc.pysfc import nquery
-from pysfc.query_brute import brute
+
 from pysfc.range_pack import filter_ranges_by_gapsize
 
+from makeboxes import make_boxes
+from query_brute import brute
 
 def is_sorted(seq):
     "Returns whether a sequence is sorted"
@@ -163,11 +165,14 @@ boxes7d = [
     ndbox([1, 1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3, 3]),
 ]
 
+boxesnd = make_boxes(mbits=4, ndims=6)
+
+
 class TestQueryFrameworkND(unittest.TestCase):
     "Testing the query functionality"
 
     def setUp(self):
-        self.boxes = boxes2d + boxes3d + boxes4d + boxes5d + boxes6d + boxes7d
+        self.boxes = boxes2d + boxes3d + boxes4d + boxes5d + boxes6d + boxes7d + boxesnd
 
     def test_against_brute(self):
         "Ranges same as obtained by brute-force computation"

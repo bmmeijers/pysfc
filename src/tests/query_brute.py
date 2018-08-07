@@ -1,11 +1,15 @@
 """Brute force querying, by converting every coordinate
 to its key, and then sorting all keys
+
+Note,
+this module should *only* be used for 
+testing / verifying correctness of the implementation
 """
 
-from pysfc import henc as hencode
-from pysfc import nenc as nencode
+from pysfc.pysfc import henc as hencode
+from pysfc.pysfc import nenc as nencode
 
-from relate import ndbox
+from pysfc.relate import ndbox
 
 from itertools import product  # for cartesian product
 
@@ -31,8 +35,6 @@ def brute(query, tp = 'h'):
         enc = hencode
     elif tp == 'n':
         enc = nencode
-    elif tp == 'z':
-        enc = zencode
     else:
         raise ValueError("Unknown encoding given")
 
@@ -75,53 +77,4 @@ def brute(query, tp = 'h'):
     # reduce(mul, diff)
     # or:
     # reduce(lambda x,y: x*y, diff)
-
-
-def howmany(diff):
-    """How many cells are there for a given set of deltas along dimensions
-    """
-    total = diff[0]
-    for ct in diff[1:]:
-        total *= ct
-    return total
-
-
-def _test_small():
-    query = ndbox([7, 0], [9, 16])
-    print brute(query, 'h')
-    print brute(query, 'n')
-    print brute(query, 'z')
-
-
-if __name__ == "__main__":
-
-#    query = ndbox([1066052,1642769,1899], [1083529,1677722,2057])
-#    diffs = compute_deltas(query)
-#    print diffs
-#    print howmany(diffs)
-
-
-#    query = ndbox([0, 0], [8, 8])
-#    # hilbert-order
-#    hranges = brute(query, 'h')
-##    assert hranges == [(2, 3), (7, 8), (8, 9), (13, 14)]
-##    print hranges
-#    # n-order
-#    nranges = brute(query, 'n')
-##    assert nranges == [(3, 4), (6, 7), (9, 10), (12, 13)]
-#    print nranges
-
-
-#    print brute(query=ndbox([0, 0], [8, 8]), tp='n')
-#    print brute(query=ndbox([1, 1], [4, 4]), tp='n')
-#    print brute(query=ndbox([1, 1], [3, 6]), tp='n')
-#    print brute(query=ndbox([1, 1], [3, 3]), tp='n')
-
-#    print brute(query=ndbox([0, 0], [8, 8]), tp='h')
-#    print brute(query=ndbox([1, 1], [4, 4]), tp='h')
-#    print brute(query=ndbox([1, 1], [3, 6]), tp='h')
-#    print brute(query=ndbox([1, 1], [3, 3]), tp='h')
-
-
-    print brute(query=ndbox([0, 2], [2, 4]), tp='h')
 

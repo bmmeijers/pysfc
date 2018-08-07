@@ -101,14 +101,14 @@ def _key_nchunks(key, mbits, ndims):
 # -- Hilbert specifics: for rotation and mirroring of the curve pattern --------
 
 
-def gray_encode(bn):
+def _hgray_encode(bn):
     # Gray encoder and decoder from http://en.wikipedia.org/wiki/Gray_code
     assert bn >= 0
     assert type(bn) in [int, long]
     return bn ^ (bn / 2)
 
 
-def gray_decode(n):
+def _hgray_decode(n):
     sh = 1
     while True:
         div = n >> sh
@@ -118,7 +118,7 @@ def gray_decode(n):
         sh <<= 1
 
 
-def gray_encode_travel(start, end, mask, i):
+def _hgray_encode_travel(start, end, mask, i):
     # gray_encode_travel -- gray_encode given start and end using bit rotation.
     #    Modified Gray code.  mask is 2**nbits - 1, the highest i value, so
     #        gray_encode_travel( start, end, mask, 0 )    == start
@@ -133,19 +133,19 @@ def gray_encode_travel(start, end, mask, i):
     # Canonical Gray code travels the top bit, 2**(nBits-1).
     # So we need to rotate by ( p - (nBits-1) ) == (p + 1) mod nBits.
     # We rotate by multiplying and dividing by powers of two:
-    g = gray_encode(i) * (travel_bit * 2)
+    g = _hgray_encode(i) * (travel_bit * 2)
     return ((g | (g / modulus)) & mask) ^ start
 
 
-def gray_decode_travel(start, end, mask, g):
+def _hgray_decode_travel(start, end, mask, g):
     travel_bit = start ^ end
     modulus = mask + 1          # == 2**nBits
     rg = (g ^ start) * (modulus / (travel_bit * 2))
-    result = gray_decode((rg | (rg / modulus)) & mask)
+    result = _hgray_decode((rg | (rg / modulus)) & mask)
     return result
 
 
-def child_start_end(parent_start, parent_end, mask, i):
+def _hchild_start_end(parent_start, parent_end, mask, i):
     # child_start_end( parent_start, parent_end, mask, i ) 
     # -- Get start & end for child.
     #    i is the parent's step number, between 0 and mask.
@@ -191,12 +191,12 @@ def child_start_end(parent_start, parent_end, mask, i):
     #    The pattern works for any nD >= 1.
     start_i = max(0, (i - 1) & ~1)  # next lower even number, or 0
     end_i = min(mask, (i + 1) | 1)  # next higher odd number, or mask
-    child_start = gray_encode_travel(parent_start, parent_end, mask, start_i)
-    child_end = gray_encode_travel(parent_start, parent_end, mask, end_i)
+    child_start = _hgray_encode_travel(parent_start, parent_end, mask, start_i)
+    child_end = _hgray_encode_travel(parent_start, parent_end, mask, end_i)
     return child_start, child_end
 
 
-def initial_start_end(nChunks, nD):
+def _hinitial_start_end(nChunks, nD):
     # This orients the largest cube so that
     # its start is the origin (0 corner), and
     # the first step is along the x axis, regardless of nD and nChunks:
@@ -211,22 +211,22 @@ def _hchunks_to_nchunks(hchunks, mbits, ndims):
     # 3 == 0b111
     # 4 == ...
     mask = 2 ** ndims - 1 
-    start, end = initial_start_end(mbits, ndims)
+    start, end = _hinitial_start_end(mbits, ndims)
     nchunks = [0] * hchunks_len
     for j, hchunk in enumerate(hchunks):
-        nchunks[j] = gray_encode_travel(start, end, mask, hchunk)
-        start, end = child_start_end(start, end, mask, hchunk)
+        nchunks[j] = _hgray_encode_travel(start, end, mask, hchunk)
+        start, end = _hchild_start_end(start, end, mask, hchunk)
     return tuple(nchunks)
 
 
 def _nchunks_to_hchunks(nchunks, mbits, ndims):
     nchunks_len = len(nchunks)
     mask = 2 ** ndims - 1
-    start, end = initial_start_end(mbits, ndims)
+    start, end = _hinitial_start_end(mbits, ndims)
     hchunks = [0] * nchunks_len
     for j, nchunk in enumerate(nchunks):
-        hchunks[j] = gray_decode_travel(start, end, mask, nchunk)
-        start, end = child_start_end(start, end, mask, hchunks[j])
+        hchunks[j] = _hgray_decode_travel(start, end, mask, nchunk)
+        start, end = _hchild_start_end(start, end, mask, hchunks[j])
     return tuple(hchunks)
 
 
@@ -305,8 +305,8 @@ def nquery(query):
         # side_at_depth 
         # how large side of the nd-cube is at this depth
         side_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x*side_at_depth, lo)
-        hi = map(lambda x: x+side_at_depth, lo)
+        lo = map(lambda x: x * side_at_depth, lo)
+        hi = map(lambda x: x + side_at_depth, lo)
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
         if ndcmp in (0, 1,):
@@ -333,7 +333,7 @@ def nquery(query):
         # we need to add 0's to the end of the list:
         # -> this happens inside _nchunks_key
         start = _nchunks_key(npath, mbits_needed, ndims)
-        side_at_depth = 2**(mbits_needed - len(npath))
+        side_at_depth = 2 ** (mbits_needed - len(npath))
         range_size = side_at_depth**ndims
         end = start + range_size
 #        print npath, start, end, range_size
@@ -361,9 +361,9 @@ def hquery(query):
         cur_level = len(npath)
         lo = _nchunks_coord(npath, ndims)
         # side_size_at_depth how large is a side of the cube at this depth?
-        side_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x*side_at_depth, lo)
-        hi = map(lambda x: x+side_at_depth, lo)
+        side_at_depth = 2 ** (mbits_needed - cur_level)
+        lo = map(lambda x: x * side_at_depth, lo)
+        hi = map(lambda x: x + side_at_depth, lo)
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
         if ndcmp in (0, 1,):
@@ -404,14 +404,14 @@ def hquery(query):
 
 
 
-if __name__ == "__main__":
-    pass
+#if __name__ == "__main__":
+#    pass
 #    ndims = 2
 #    for i in range(4):
 #        for j in range(4):
 #            print [i, j], _nchunks_to_hchunks([i, j], ndims)
 
-    print hquery(ndbox((1, 1, 1, 1), (3, 3, 3, 3)))
+#    print hquery(ndbox((1, 1, 1, 1), (3, 3, 3, 3)))
 
 #    print hquery(query=ndbox([0, 2], [2, 4]))
 #    print nchunk_table()
