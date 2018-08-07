@@ -148,15 +148,29 @@ boxes4d = [
     ndbox([1, 1, 1, 1], [3, 3, 3, 3]),
 ]
 
+boxes5d = [
+    # cube5d; center box of 2x2x2x2x2
+    ndbox([1, 1, 1, 1, 1], [3, 3, 3, 3, 3]),
+]
+
+boxes6d = [
+    # cube6d; center box of 2x2x2x2x2x2
+    ndbox([1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3]),
+]
+
+boxes7d = [
+    # cube7d; center box of 2x2x2x2x2x2
+    ndbox([1, 1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3, 3]),
+]
 
 class TestQueryFrameworkND(unittest.TestCase):
     "Testing the query functionality"
 
     def setUp(self):
-        self.boxes = boxes2d + boxes3d + boxes4d
+        self.boxes = boxes2d + boxes3d + boxes4d + boxes5d + boxes6d + boxes7d
 
     def test_against_brute(self):
-        "Compare against brute-force computation"
+        "Ranges same as obtained by brute-force computation"
         for tp, func in (('h', hquery), ('n', nquery), ):
             for box in self.boxes:
                 expected = brute(box, tp)
@@ -170,14 +184,14 @@ class TestQueryFrameworkND(unittest.TestCase):
                 assert expected == obtained, "\n{}\n expected ranges: {}\n obtained ranges: {}\n function: {}".format(box, expected, obtained, func)
 
     def test_sorted(self):
-        "Ranges sorted by their start"
+        "Ranges are sorted by their start"
         for query in hquery, nquery:
             for box in self.boxes:
                 result = query(box)
                 assert is_sorted([start for start, end in result]), "{} {} {}".format(result, query, box)
 
     def test_have_length(self):
-        "Ranges have length (their end > start)"
+        "Ranges do have length (their end > start)"
         for query in hquery, nquery:
             for box in self.boxes:
                 result = query(box)

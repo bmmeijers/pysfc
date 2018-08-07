@@ -29,6 +29,8 @@ from relate import ndbox, relate
 #
 
 def _determine_bits(val, base):
+    # gives exponent for next power of 2
+    # next = pow(2, ceil(log(x)/log(2)));
     return max(1, int(ceil(log(val+1, base))))
 
 
@@ -288,7 +290,7 @@ def nquery(query):
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi)+1, ndims)
+    mbits_needed = _determine_bits(max(query.hi), 2)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
@@ -346,7 +348,7 @@ def hquery(query):
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi)+1, ndims)
+    mbits_needed = _determine_bits(max(query.hi), 2)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
