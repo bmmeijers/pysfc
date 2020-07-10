@@ -42,7 +42,7 @@ def _transpose_bits(srcs, nDests):
         dest = 0
         for k in range(nSrcs):
             dest = dest * 2 + srcs[k] % 2
-            srcs[k] /= 2 # divide by two, i.e. shift right (>>) with 1
+            srcs[k] //= 2 # divide by two, i.e. shift right (>>) with 1
         dests[j] = dest
     return tuple(dests)
 
@@ -104,8 +104,8 @@ def _key_nchunks(key, mbits, ndims):
 def _hgray_encode(bn):
     # Gray encoder and decoder from http://en.wikipedia.org/wiki/Gray_code
     assert bn >= 0
-    assert type(bn) in [int, long]
-    return bn ^ (bn / 2)
+    assert type(bn) in [int]
+    return bn ^ (bn // 2)
 
 
 def _hgray_decode(n):
@@ -134,14 +134,14 @@ def _hgray_encode_travel(start, end, mask, i):
     # So we need to rotate by ( p - (nBits-1) ) == (p + 1) mod nBits.
     # We rotate by multiplying and dividing by powers of two:
     g = _hgray_encode(i) * (travel_bit * 2)
-    return ((g | (g / modulus)) & mask) ^ start
+    return ((g | (g // modulus)) & mask) ^ start
 
 
 def _hgray_decode_travel(start, end, mask, g):
     travel_bit = start ^ end
     modulus = mask + 1          # == 2**nBits
-    rg = (g ^ start) * (modulus / (travel_bit * 2))
-    result = _hgray_decode((rg | (rg / modulus)) & mask)
+    rg = (g ^ start) * (modulus // (travel_bit * 2))
+    result = _hgray_decode((rg | (rg // modulus)) & mask)
     return result
 
 
@@ -305,8 +305,8 @@ def nquery(query):
         # side_at_depth 
         # how large side of the nd-cube is at this depth
         side_at_depth = 2**(mbits_needed - cur_level)
-        lo = map(lambda x: x * side_at_depth, lo)
-        hi = map(lambda x: x + side_at_depth, lo)
+        lo = tuple(map(lambda x: int(x * side_at_depth), lo))
+        hi = tuple(map(lambda x: int(x + side_at_depth), lo))
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
         if ndcmp in (0, 1,):
@@ -362,8 +362,8 @@ def hquery(query):
         lo = _nchunks_coord(npath, ndims)
         # side_size_at_depth how large is a side of the cube at this depth?
         side_at_depth = 2 ** (mbits_needed - cur_level)
-        lo = map(lambda x: x * side_at_depth, lo)
-        hi = map(lambda x: x + side_at_depth, lo)
+        lo = tuple(map(lambda x: int(x * side_at_depth), lo))
+        hi = tuple(map(lambda x: int(x + side_at_depth), lo))
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
         if ndcmp in (0, 1,):
@@ -376,6 +376,7 @@ def hquery(query):
                 childs = []
                 for ncode in range(2**ndims):
                     new_path = npath + (ncode, )
+                    print(new_path)
                     hpath = _nchunks_to_hchunks(new_path, mbits_needed, ndims)
                     hcode = _hchunks_key(hpath, mbits_needed, ndims)
                     childs.append((hcode, new_path))
