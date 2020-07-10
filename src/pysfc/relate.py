@@ -3,6 +3,8 @@ Determine the spatial relation between two nD-boxes
 
 Based on http://sfclib.github.io
 """
+from itertools import product
+
 
 def bitreverse(n, bits):
     N = 1 << bits           # find N: shift left 1 by the number of bits
@@ -35,6 +37,12 @@ class ndbox(object):
 
     def __repr__(self):
         return "ndbox({}, {})".format(repr(self.lo), repr(self.hi))
+
+    @property
+    def vertices(self):
+        """Returns an iterator of the corner vertices of this hypercube """
+        dims = ((self.lo[n], self.hi[n]) for n in range(self.dims))
+        return product(*dims)
 
     def nth_child_norder(self, n):
         """
@@ -147,6 +155,18 @@ def _test():
     assert relate(one, other) != 0
     other = ndbox((0, 0, 1), (10, 10, 10))
     assert relate(one, other) != 0
+
+    # test that this box has 8 corners
+    corners = list(pt for pt in one.vertices)
+    assert len(corners) == 8
+    # the following vertices (not present in the box definition)
+    # should be there in the generated vertices
+    assert (0, 0, 10) in corners
+    assert (0, 10, 0) in corners
+    assert (10, 0, 0) in corners
+    # these vertices are there in the constructor
+    assert (0, 0, 0) in corners
+    assert (10, 10, 10) in corners
 
 
 if __name__ == "__main__":
