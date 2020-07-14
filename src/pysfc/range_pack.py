@@ -78,7 +78,7 @@ if __name__ == "__main__":
     #ranges = [(112, 116), (116, 120), (142, 143), (143, 144)]
 
     ranges = query()
-    print ranges
+    print(ranges)
 
 #    ranges = filter_ranges_by_gapsize(ranges, 0)
 #    print ranges
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     # sorted gaps (differences between the ranges)
     gapsizes = sorted(gaps(ranges))
-    print gapsizes # << will be empty if not enough ranges (e.g. if we only have 1 range to get)
+    print (gapsizes) # << will be empty if not enough ranges (e.g. if we only have 1 range to get)
 
     # nr of gaps = nr of ranges - 1
     
@@ -131,14 +131,14 @@ if __name__ == "__main__":
             idx = len(gapsizes)
         # take the gap size that we should use to filter
         # (note, we may get less ranges than specified)
-        print -idx
+        print(-idx)
         filter_gap_size = gapsizes[-idx]
-        print "filter gaps that are <=", filter_gap_size
-        print filter_ranges_by_gapsize(ranges, filter_gap_size)
+        print( "filter gaps that are <=", filter_gap_size)
+        print( filter_ranges_by_gapsize(ranges, filter_gap_size))
     else:
-        print "only filter 0-wide gaps -- number of ranges is already below", maxranges
+        print( "only filter 0-wide gaps -- number of ranges is already below", maxranges)
         ranges = filter_ranges_by_gapsize(ranges, 0)
-        print ranges
+        print( ranges)
 
     # post condition that should hold: length of ranges <= maxranges !
 

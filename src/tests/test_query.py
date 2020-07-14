@@ -22,13 +22,13 @@ class TestSorted(unittest.TestCase):
     def test_sorted(self):
         "Increasing sequence is sorted"
         for i in range(10):
-            seq = range(i)
+            seq = list(range(i))
             assert is_sorted(seq) == True
 
     def test_sorted_rev(self):
         "Decreasing sequence is not sorted"
         for i in range(2, 10):
-            seq = range(i)
+            seq = list(range(i))
             seq.reverse()
             assert is_sorted(seq) == False
 

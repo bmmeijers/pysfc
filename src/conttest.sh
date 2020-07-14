@@ -7,4 +7,4 @@ sleep 1
 echo '* Running test suite'
 
 #python -m unittest discover -s . -p 'test_*.py'
-nosetests-2.7 ./tests/test_*.py -v --with-coverage --cover-html
+nosetests3 ./tests/test_*.py -v --with-coverage --cover-html

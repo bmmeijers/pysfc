@@ -1,7 +1,7 @@
 from math import ceil, log
 from collections import deque
 from operator import itemgetter
-from relate import ndbox, relate
+from pysfc.relate import ndbox, relate
 
 #
 # Conversion of nD coordinate to SFC key and vice versa
@@ -104,11 +104,12 @@ def _key_nchunks(key, mbits, ndims):
 def _hgray_encode(bn):
     # Gray encoder and decoder from http://en.wikipedia.org/wiki/Gray_code
     assert bn >= 0
-    assert type(bn) in [int]
+    assert type(bn) in [int], "Expected int, but found: {}".format(type(bn))
     return bn ^ (bn // 2)
 
 
 def _hgray_decode(n):
+    assert type(n) in [int], "Expected int, but found: {}".format(type(n))
     sh = 1
     while True:
         div = n >> sh
@@ -119,6 +120,11 @@ def _hgray_decode(n):
 
 
 def _hgray_encode_travel(start, end, mask, i):
+    assert type(start) in [int], "Expected int, but found: {}".format(type(start))
+    assert type(end) in [int], "Expected int, but found: {}".format(type(end))
+    assert type(mask) in [int], "Expected int, but found: {}".format(type(mask))
+    assert type(i) in [int], "Expected int, but found: {}".format(type(i))
+
     # gray_encode_travel -- gray_encode given start and end using bit rotation.
     #    Modified Gray code.  mask is 2**nbits - 1, the highest i value, so
     #        gray_encode_travel( start, end, mask, 0 )    == start
@@ -234,11 +240,21 @@ _hchunks_key = _chunks_key
 
 
 def _key_hchunks(key, mbits, ndims):
+    # pre conditions
+    assert type(key) in [int], "Expected int, but found: {}".format(type(key))
+    assert type(mbits) in [int], "Expected int, but found: {}".format(type(mbits))
+    assert type(ndims) in [int], "Expected int, but found: {}".format(type(ndims))
+
     p = 2**ndims
     hchunks = [0] * mbits
     for j in range(mbits - 1, -1, -1):
         hchunks[j] = key % p
-        key /= p
+        key //= p
+
+    # post condition: all int's
+    for h in hchunks:
+        assert type(h) in [int], "Expected int, but found: {}".format(type(p))
+
     return hchunks
 
 
@@ -277,7 +293,11 @@ def henc(coord):
 def hdec(key, ndims):
     mbits = _determine_bits(key, 2**ndims)
     #
+    assert type(mbits) in [int]
+    assert type(key) in [int]
+    assert type(ndims) in [int]
     hchunks = _key_hchunks(key, mbits, ndims)
+
     nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
     coord = _nchunks_coord(nchunks, ndims)
     return tuple(coord)
@@ -376,7 +396,6 @@ def hquery(query):
                 childs = []
                 for ncode in range(2**ndims):
                     new_path = npath + (ncode, )
-                    print(new_path)
                     hpath = _nchunks_to_hchunks(new_path, mbits_needed, ndims)
                     hcode = _hchunks_key(hpath, mbits_needed, ndims)
                     childs.append((hcode, new_path))

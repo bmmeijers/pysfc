@@ -22,35 +22,35 @@ class TestEncodingDecoding(unittest.TestCase):
         """Test that encode and decode functions agree with each other,
         also in higher dims"""
         # 2D
-        for x in xrange(maxside):
-            for y in xrange(maxside):
+        for x in range(maxside):
+            for y in range(maxside):
                 c = (x, y)
                 e = encode(c)
                 d = decode(e, 2)
                 assert c == d
         # 3D
-        for x in xrange(maxside):
-            for y in xrange(maxside):
-                for z in xrange(maxside):
+        for x in range(maxside):
+            for y in range(maxside):
+                for z in range(maxside):
                     c = (x, y, z)
                     e = encode(c)
                     d = decode(e, 3)
                     assert c == d
         # 4D
-        for x in xrange(maxside):
-            for y in xrange(maxside):
-                for z in xrange(maxside):
-                    for t in xrange(maxside):
+        for x in range(maxside):
+            for y in range(maxside):
+                for z in range(maxside):
+                    for t in range(maxside):
                         c = (x, y, z, t)
                         e = encode(c)
                         d = decode(e, 4)
                     assert c == d
         # 5D
-        for x in xrange(maxside):
-            for y in xrange(maxside):
-                for z in xrange(maxside):
-                    for t in xrange(maxside):
-                        for s in xrange(maxside):
+        for x in range(maxside):
+            for y in range(maxside):
+                for z in range(maxside):
+                    for t in range(maxside):
+                        for s in range(maxside):
                             c = (x, y, z, t, s)
                             e = encode(c)
                             d = decode(e, 5)
