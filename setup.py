@@ -1,13 +1,11 @@
-import ez_setup
-ez_setup.use_setuptools()
-from setuptools import setup, find_packages, Extension
-from Cython.Build import cythonize
+from distutils.core import setup
 
 setup(
-    name = 'pysfc',
+    name='pysfc',
+    version='0.0.0',
     package_dir = {'': 'src'},
     packages = ['pysfc',],
-    ext_modules = cythonize(["src/pysfc/speedups/hilbert.pyx", 
-                             "src/pysfc/speedups/query_hilbert.pyx", 
-                             "src/pysfc/speedups/relate.pyx",]),
+    url='https://github.com/bmmeijers/pysfc',
+    author='Martijn Meijers',
+    author_email='b.m.meijers@tudelft.nl',
 )
