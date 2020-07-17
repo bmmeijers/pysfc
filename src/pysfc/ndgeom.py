@@ -1,5 +1,5 @@
 import sys
-from vectorops import mul, dot, norm, cross, unit, sub, add
+from pysfc.vectorops import mul, dot, norm, cross, unit, sub, add
 
 # [*] Figure out 'handedness' of planes <--> what should be positive side/negative side?
 ##

@@ -4,6 +4,7 @@ Determine the spatial relation between two nD-boxes
 Based on http://sfclib.github.io
 """
 from itertools import product
+from pysfc.ndgeom import ndbox
 
 
 def bitreverse(n, bits):
@@ -15,84 +16,6 @@ def bitreverse(n, bits):
         nrev |= n & 1       # give LSB of n to nrev
     nrev &= N - 1           # clear all bits more significant than N-1
     return nrev
-
-
-class ndbox(object):
-    """A nD box object"""
-    __slots__ = ('lo', 'hi')
-
-    def __init__(self, lo, hi):
-        """lo and hi attributes are lists with equal number of coordinates"""
-        assert len(lo) == len(hi)
-        self.lo = tuple(lo)
-        self.hi = tuple(hi)
-
-    @property
-    def dims(self):
-        """How many dimensions does this box have (i.e. how big is n in nD)"""
-        return len(self.lo)
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return "ndbox({}, {})".format(repr(self.lo), repr(self.hi))
-
-    @property
-    def vertices(self):
-        """Returns an iterator of the corner vertices of this hypercube """
-        dims = ((self.lo[n], self.hi[n]) for n in range(self.dims))
-        return product(*dims)
-
-    def nth_child_norder(self, n):
-        """
-        calculate coordinates of the nth-child given coordinates of the parent nd-box
-        where n is given as norder integer 
-        (to be able to derive which of the nary childs you get)
-
-        An example for 2D
-
-        Note that 0 = at low side, and 1 = at high side of dimension
-        for n=0 -> z=0, y=0, x=0 means the child is located with respect to center:
-        (at low side, at low side, at low side)
-
-        n-order:
-
-            n     xy
-            -  -----
-            0     00
-            1     01
-            2     10
-            3     11
-
-        z-order (note: flipped xy on top):
-
-            n     yx
-            -  -----
-            0     00
-            1     01
-            2     10
-            3     11
-
-        """
-        c = [l + ((h-l) / 2) for h, l in zip(self.hi, self.lo)]
-        l = list(self.lo[:])
-        h = list(self.hi[:])
-        dim = self.dims
-        for d in range(dim): # for 3D: 2 = x, y = 1, z = 0
-    #        print n, ">>", d
-            rshifted = (bitreverse(n, dim) >> d)  # bit shift the child index number to the right by d bits AFTER THE BITS OF N ARE REVERSED
-            at_high_side_for_dim_d = bool((rshifted) & 1)
-            #        print "", names[d],  ":", binstr(rshifted, dim), "&", binstr(1, dim), "=", at_high_side_for_dim_d
-            if at_high_side_for_dim_d:
-                # keep the high, shift the low ordinate to the center
-                l[d] = c[d]
-            else:
-                # keep the low, shift the high ordinate to the center
-                h[d] = c[d]
-        #    print " >>>", l, h
-        # return the coordinates of this child box
-        return ndbox(l, h)
 
 
 def relate(rect, qrt):
