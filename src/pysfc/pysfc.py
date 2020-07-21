@@ -91,6 +91,7 @@ def _key_nchunks(key, mbits, ndims):
         [2, 3, 1]
 
     """
+    # EXACT SAME behaviour as _key_hchunks ???
     nchunks = [0] * mbits
     mask = (1 << ndims) - 1 # number with all bits set to 1, with ndims bits, e.g. ndims = 3 == 0b111
     for i in range(mbits):
@@ -285,6 +286,10 @@ def henc(coord):
     ndims = len(coord)
     #
     nchunks = _coord_nchunks(coord, mbits)
+    # FIXME: can we replace the following function call
+    # by look ups in dictionaries? size of the lut's does depend on ndims
+    # so memory consumption will grow with higher dims (but runtime will most
+    # likely be some factor faster)
     hchunks = _nchunks_to_hchunks(nchunks, mbits, ndims)
     key = _hchunks_key(hchunks, mbits, ndims)
     return key
