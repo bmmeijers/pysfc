@@ -1,5 +1,6 @@
 import sys
 from pysfc.vectorops import mul, dot, norm, cross, unit, sub, add
+from itertools import product
 
 # [*] Figure out 'handedness' of planes <--> what should be positive side/negative side?
 ##
@@ -395,6 +396,67 @@ def relate_box__sphere_based(planes, box):
         # (but maybe this should be done if and only if, based on an ε-distance, we can deduce that this is necessary, i.e. when hyperplane is very close to the border of the sphere)?
         return INTERACT
 
+
+# ----------------------------------------------------------------------------#
+def relate_box__sweep_based(planes, box):
+    """
+    spatial relation between hyperplanes and nd-box
+    """
+    # pre-condition: some planes to test against
+    assert len(planes) > 0
+    result = -1
+    for plane in planes:
+        # first hit point sweeping the box with the hyperplane
+        enter = sweep_box_with_plane_enter(plane, box)
+        enter_dist = distance(enter, plane)
+        if enter_dist >= 0:
+            # only override result when not yet seen
+            if result == -1:
+                result = CONTAINED
+        else:
+            # last hit point sweeping the box with the hyperplane
+            exit = sweep_box_with_plane_exit(plane, box)
+            exit_dist = distance(exit, plane)
+            if exit_dist >= 0:
+                result = INTERACT
+            else:
+                return NO_INTERACT
+    # post-condition
+    # result here should be either INTERACT / CONTAINED
+    assert result in (INTERACT, CONTAINED)
+    return result
+
+
+def sweep_box_with_plane_enter(hyperplane, box):
+    """ Return enter points when 'sweeping' the box with the hyperplane
+
+    enter: point that is 'hit' first while sweeping the box with the hyperplane
+    along the direction of the normal of the hyperplane
+    """
+    enter = [0.0] * box.dims
+    for i, w in enumerate(hyperplane.w):
+        if w < 0:
+            enter[i] = box.hi[i]
+        else:
+            enter[i] = box.lo[i]
+    return enter
+
+
+def sweep_box_with_plane_exit(hyperplane, box):
+    """ Return exit point when 'sweeping' the box with the hyperplane
+
+    exit: point where hyperplane leaves the box while sweeping the box with the
+    hyperplane along the direction of the normal of the hyperplane
+    """
+    exit = [0.0] * box.dims
+    for i, w in enumerate(hyperplane.w):
+        if w < 0:
+            exit[i] = box.lo[i]
+        else:
+            exit[i] = box.hi[i]
+    return exit
+
+
 # -- 
 # -- Querying ------------------------------------------------
 # -- 
@@ -409,6 +471,7 @@ def nquery(query_planes, query_hi=1023, use_sphere=True):
     #
     # we could evaluate the polytope (query_planes) and see if it is finite
     # and from that determine the corners, and hence its extent
+    #
     # otherwise, we need to make sure that it is large enough -> known from
     # the metadata for scaling/translating the cube and the resolution
 
@@ -841,8 +904,8 @@ def measure_performance(use_sphere = True):
     """
     To run a mini-timing benchmark, in the shell run:
 
-    $ python3 -O -mtimeit -n 5 -r 5  -s'import ndsphere' 'ndsphere.measure_performance(True)'
-    $ python3 -O -mtimeit -n 5 -r 5  -s'import ndsphere' 'ndsphere.measure_performance(False)'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance(True)'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance(False)'
     """
 
     # TODO: == introduce higher dimensions ==
@@ -930,14 +993,14 @@ def playground():
 #    case_1d()
 #    case_1d_range()
 #    case_2d()
-#    case_3d()
+    case_3d()
 #    case_3d_combine()
     pass
 
 
 def main():
-    tests()
-    #playground()
+    #tests()
+    playground()
 
 
 if __name__ == "__main__":
