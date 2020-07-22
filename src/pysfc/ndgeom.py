@@ -402,9 +402,14 @@ def relate_box__sweep_based(planes, box):
     """
     spatial relation between hyperplanes and nd-box
     """
+    from math import sqrt
     # pre-condition: some planes to test against
     assert len(planes) > 0
     result = -1
+    # side length of box: E
+    box_side_dist = box.hi[0] - box.lo[0]
+    # length of diagonal: E * √n (:= √(n * E * E), with n=nDims
+    diagonal_dist = box_side_dist * sqrt(box.dims)
     for plane in planes:
         # first hit point sweeping the box with the hyperplane
         enter = sweep_box_with_plane_enter(plane, box)
@@ -887,6 +892,24 @@ def visualize_box_2d(box):
     return 'POLYGON(({}))'.format(coords)
 
 
+def test_sweep_2d_strange_case():
+    from math import cos, sin, radians
+    hp0 = HyperPlane([-1, 1], 0) # -x,+y, through [0, 0]
+    hp0.normalize()
+    angle_deg = 285. 
+    hp1 = HyperPlane([cos(radians(angle_deg)), sin(radians(angle_deg))], -20)
+    hp1.normalize()
+    planes = [
+        hp0,
+        HyperPlane([0, 1], 0), # +y, through [0, 0]
+        HyperPlane([-1, 0], -10), # -x, through [10, 0]
+        hp1,
+    ]
+    b = ndbox([-100., 0.], [0., 100.])
+    relate_sw = relate_box__sweep_based(planes, b)
+    assert relate_sw == INTERACT
+
+
 def visualize_2d_boxes_against_some_planes():
     hp0 = HyperPlane([-1, 1], 0) # -x,+y, through [0, 0]
     hp0.normalize()
@@ -1039,6 +1062,7 @@ def tests():
     test_1d_relate_box()
     test_2d_relate_box()
     test_conversion()
+    test_sweep_2d_strange_case()
     print('tests done.')
 
 
