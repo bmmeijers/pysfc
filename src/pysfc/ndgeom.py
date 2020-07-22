@@ -103,7 +103,7 @@ class HyperPlane(object):
             return mul(normalized, self.offset)
 
 
-def distance(point, hyperplane):
+def signed_distance(point, hyperplane):
     """
     Returns signed distance from point to hyperplane
     """
@@ -131,7 +131,7 @@ def lies_on_closed_upper_halfspace(point, hyperplane):
     # |> points with a positive distance to the plane 
     # |> in 2D True if point on the side that the normal ω points towards
     # |> in 3D True if point above the plane (on the side that the normal ω points towards)
-    d = distance(point, hyperplane)
+    d = signed_distance(point, hyperplane)
     return d >= 0.0 ## closed upper halfspace (including halfplane space itself)
 
 
@@ -268,7 +268,7 @@ def covers(hp, sphere):
     The closed, upper halfspace (i.e. including the 'boundary' of the halfspace)
     totally covers the sphere (including the sphere its boundary)
     """
-    return distance(sphere.center, hp) - sphere.radius >= 0.0
+    return signed_distance(sphere.center, hp) - sphere.radius >= 0.0
 
 
 # TODO: remove following code
@@ -277,7 +277,7 @@ def covers(hp, sphere):
 #    This hyperplane splits the affine space in 2 (positive/negative),
 #    so we can check whether the given sphere has any interaction with positive part of the space
 #    """
-#    distance_center_to_plane = distance(sphere.center, hyperplane)
+#    distance_center_to_plane = signed_distance(sphere.center, hyperplane)
 #    return (distance_center_to_plane + sphere.radius) >= 0.0
 
 
@@ -286,7 +286,7 @@ def intersects(hp, sphere):
     The closed, upper halfspace intersects the sphere
     (i.e. there exists a spatial relation between the two)
     """
-    return distance(sphere.center, hp) + sphere.radius >= 0.0
+    return signed_distance(sphere.center, hp) + sphere.radius >= 0.0
 
 # -----------------------------------------------------------------------------
 # -- spatial relate
@@ -302,9 +302,9 @@ def intersects(hp, sphere):
 #
 
 
-NO_INTERACT = 0
-INTERACT = 1
-CONTAINED = 2
+NO_INTERACT = 0     # no interaction
+INTERACT = 1        # possibly some interaction
+CONTAINED = 2       # interaction, for sure
 
 
 def relate_sphere(planes, sphere):
@@ -408,19 +408,34 @@ def relate_box__sweep_based(planes, box):
     for plane in planes:
         # first hit point sweeping the box with the hyperplane
         enter = sweep_box_with_plane_enter(plane, box)
-        enter_dist = distance(enter, plane)
+        enter_dist = signed_distance(enter, plane)
         if enter_dist >= 0:
             # only override result when not yet seen
             if result == -1:
                 result = CONTAINED
         else:
-            # last hit point sweeping the box with the hyperplane
-            exit = sweep_box_with_plane_exit(plane, box)
-            exit_dist = distance(exit, plane)
-            if exit_dist >= 0:
+            # perform distance comparison first (diagonal length & side of box)
+            # by doing that, we defer sweeping for the far point
+            abs_enter_dist = abs(enter_dist)
+            if abs_enter_dist > diagonal_dist:
+                return NO_INTERACT
+# ----------------------------------------------------------------------------#
+# - alternative:                                                         -----#
+# - not considering the exit point, just accepting possibly interact     -----#
+# ----------------------------------------------------------------------------#
+##            else:
+##                result = INTERACT    
+# ----------------------------------------------------------------------------#
+            elif abs_enter_dist < box_side_dist:
                 result = INTERACT
             else:
-                return NO_INTERACT
+                # get last hit point sweeping the box with the hyperplane
+                exit = sweep_box_with_plane_exit(plane, box)
+                exit_dist = signed_distance(exit, plane)
+                if exit_dist >= 0:
+                    result = INTERACT
+                else:
+                    return NO_INTERACT
     # post-condition
     # result here should be either INTERACT / CONTAINED
     assert result in (INTERACT, CONTAINED)
@@ -514,7 +529,7 @@ def nquery(query_planes, query_hi=1023, use_sphere=True):
         # parent box is completely at correct side of this hyperplane already
         # -> result of spatial relate test will again be true for splitted boxes
         ndcmp = relate(query_planes, cur_node)
-        # contained
+        # -- full overlap, contained
         if ndcmp == CONTAINED:
             paths.append(npath)
         # -- partial overlap
@@ -578,23 +593,23 @@ def test_normalize():
 def test_1d_signed_distance_point_hyperplane():
     hp = HyperPlane([1.0], 0.0)
     for p in range(-10, 11):
-        assert distance([p], hp) == p
+        assert signed_distance([p], hp) == p
 
     hp = HyperPlane([-1.0], 0.0)
     for p in range(-10, 11):
-        assert distance([p], hp) == -p
+        assert signed_distance([p], hp) == -p
 
     hp = HyperPlane([1.0], 5.0)
     for p in range(-10, 11):
-        assert distance([p], hp) == p - 5.0
+        assert signed_distance([p], hp) == p - 5.0
 
     hp = HyperPlane([-1.0], -5.0)
     for p in range(-10, 11):
-        assert distance([p], hp) == -p + 5.0
+        assert signed_distance([p], hp) == -p + 5.0
 
     hp = HyperPlane([-1.0], 5.0)
     for p in range(-10, 11):
-        assert distance([p], hp) == -p - 5.0
+        assert signed_distance([p], hp) == -p - 5.0
 
 
 
@@ -875,60 +890,97 @@ def visualize_box_2d(box):
 def visualize_2d_boxes_against_some_planes():
     hp0 = HyperPlane([-1, 1], 0) # -x,+y, through [0, 0]
     hp0.normalize()
-    hp1 = HyperPlane([1, -1], -80) # +x,-y, through [?,?]
+
+    from math import cos, sin, radians
+
+    angle_deg = 285. #315.
+    hp1 = HyperPlane([cos(radians(angle_deg)), sin(radians(angle_deg))], -20) # +x,-y, through [?,?]
     hp1.normalize()
+
     planes = [
         hp0,
         HyperPlane([0, 1], 0), # +y, through [0, 0]
         HyperPlane([-1, 0], -10), # -x, through [10, 0]
         hp1,
     ]
+    # output halfplanes
+    filenm = '/tmp/planes.txt'
+    with open(filenm, 'w') as fh:
+        pass
+    for plane in planes:
+        visualize_halfplane_2d(plane, filenm)
+
     outcomes = []
     step = 1
+
+#    start = -100
+#    end = 110
+
     for x in range (-100, 110, step):
         for y in range (-100, 110, step):
             b = ndbox((x,y), (x+step, y+step))
             relate_s = relate_box__sphere_based(planes, b)
             relate_b = relate_box__box_based(planes, b)
+            relate_sw = relate_box__sweep_based(planes, b)
             wkt = visualize_box_2d(b)
-            outcomes.append((wkt, relate_s,relate_b))
+            outcomes.append((wkt, relate_s, relate_b, relate_sw))
     # write for visualization in qgis to csv file
     import csv
     with open('/tmp/wkt.csv', 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t')
-        writer.writerow(['geometry', 'relate_sphere', 'relate_box'])
+        writer.writerow(['geometry', 'relate_sphere', 'relate_box', 'relate_sweep'])
         writer.writerows(outcomes)
 
 
-def measure_performance(use_sphere = True):
+def visualize_halfplane_2d(h, filenm='/tmp/planes.txt'):
+    from pysfc.vectorops import rotate90ccw, rotate90cw, add, mul
+    # make 2D line of 2000 units long + the normal
+    ccw = rotate90ccw(h.w)
+    cw = rotate90cw(h.w)
+    start = add(mul(cw, 1000.), h.through)
+    end = add(mul(ccw, 1000.), h.through)
+    with open(filenm, 'a') as fh:
+        fh.write("LINESTRING({0[0]} {0[1]} , {1[0]} {1[1]})\tplane".format(start, end))
+        fh.write('\n')
+        fh.write("LINESTRING({0[0]} {0[1]} , {1[0]} {1[1]})\tnormal".format(h.through, add(h.through, h.w)))
+        fh.write('\n')
+
+
+def measure_performance(which):
     """
     To run a mini-timing benchmark, in the shell run:
 
-    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance(True)'
-    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance(False)'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sphere")'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("corner")'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sweep")'
     """
 
     # TODO: == introduce higher dimensions ==
     # -> the higher the dimensions, the more vertices per hyperbox,
-    # so the larger the difference with the sphere representation
+    # so the larger the difference with the sphere/sweep representation
 
-    hp0 = HyperPlane([-1, 1], 0) # -x,+y, through [0, 0]
+    hp0 = HyperPlane([-1, 1, 0, 0], 0) # -x,+y, through [0, 0]
     hp0.normalize()
     planes = [
         hp0,
-        HyperPlane([0, 1], 0), # +y, through [0, 0]
-        HyperPlane([-1, 0], -10), # +x, through [10, 0]
+        HyperPlane([0, 1, 0, 0], 0), # +y, through [0, 0]
+        HyperPlane([-1, 0, 0, 0], -10), # +x, through [10, 0]
     ]
     step = 1
 
-    if use_sphere:
-        r = relate_box__sphere_based
-    else:
-        r = relate_box__box_based
-    for x in range (-100, 110, step):
-        for y in range (-100, 110, step):
-            b = ndbox((x,y), (x+step, y+step))
-            relate = r(planes, b)
+    lut = {
+        'sphere': relate_box__sphere_based,
+        'corner': relate_box__box_based,
+        'sweep': relate_box__sweep_based,
+    }
+    r = lut[which]
+    lo, hi = -5, 6
+    for x in range (lo, hi, step):
+        for y in range (lo, hi, step):
+            for z in range (lo, hi, step):
+                for k in range (lo, hi, step):
+                    b = ndbox((x,y,z, k), (x+step, y+step, z+step, k+step))
+                    relate = r(planes, b)
 
 
 def dist_comp():
@@ -939,29 +991,29 @@ def dist_comp():
     hp = HyperPlane([1], 0)
 
     sphere = as_ndsphere(ndbox([1], [3]))
-    assert distance(sphere.center, hp) == 2.0
+    assert signed_distance(sphere.center, hp) == 2.0
 
     sphere = as_ndsphere(ndbox([-3], [0]))
-#    assert distance(sphere.center, hp) == -2.0
-    print(distance(sphere.center, hp))
-    print(distance(sphere.center, hp) + sphere.radius)
+#    assert signed_distance(sphere.center, hp) == -2.0
+    print(signed_distance(sphere.center, hp))
+    print(signed_distance(sphere.center, hp) + sphere.radius)
 
     sphere = as_ndsphere(ndbox([0], [2]))
-    assert distance(sphere.center, hp) == +1.0
+    assert signed_distance(sphere.center, hp) == +1.0
 
     # partly overlaps positive halfspace
     # why?
     sphere = as_ndsphere(ndbox([-1], [1]))
-    assert distance(sphere.center, hp) == 0.0
+    assert signed_distance(sphere.center, hp) == 0.0
 
     sphere = as_ndsphere(ndbox([-1.5], [0.5]))
-    assert distance(sphere.center, hp) == -0.5
-    print(distance(sphere.center, hp) + sphere.radius >= sphere.radius)
+    assert signed_distance(sphere.center, hp) == -0.5
+    print(signed_distance(sphere.center, hp) + sphere.radius >= sphere.radius)
 
     for i in range(-10, 10):
         i *= 0.5
         s = ndsphere((i,),1)
-        print(i, s, '\t', distance(s.center, hp), '\t', 'covers:', covers(hp, s), '\t', 'overlaps:', overlaps(hp, s), '\t', distance(s.center, hp) + s.radius, distance(s.center, hp) - s.radius)
+        print(i, s, '\t', signed_distance(s.center, hp), '\t', 'covers:', covers(hp, s), '\t', 'overlaps:', overlaps(hp, s), '\t', signed_distance(s.center, hp) + s.radius, signed_distance(s.center, hp) - s.radius)
 
 
 def try_orig_nquery():
@@ -987,6 +1039,7 @@ def tests():
     test_1d_relate_box()
     test_2d_relate_box()
     test_conversion()
+    print('tests done.')
 
 
 def playground():
@@ -999,8 +1052,9 @@ def playground():
 
 
 def main():
-    #tests()
-    playground()
+    tests()
+    # playground()
+    # visualize_2d_boxes_against_some_planes()
 
 
 if __name__ == "__main__":
