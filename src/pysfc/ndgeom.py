@@ -446,6 +446,66 @@ def relate_box__sweep_based(planes, box):
     assert result in (INTERACT, CONTAINED)
     return result
 
+# FIXME replace temporary globals with dict
+# -> count_stats.tested / count_stats.contained
+TESTED_CT = 0 
+CONTAINED_CT = 0
+
+
+def relate_box__sweep_based__with_mask(planes, box, mask=0):
+    """
+    spatial relation between hyperplanes and nd-box
+    """
+    global TESTED_CT, CONTAINED_CT
+    from math import sqrt
+    # pre-condition: some planes to test against
+    assert len(planes) > 0
+    result = -1
+    # side length of box: E
+    box_side_dist = box.hi[0] - box.lo[0]
+    # length of diagonal: E * √n (:= √(n * E * E), with n=nDims
+    diagonal_dist = box_side_dist * sqrt(box.dims)
+    # mask_out will be changed, if we detect that box now is contained
+    mask_out = mask
+    for index, plane in enumerate(planes):
+        TESTED_CT += 1
+        # we know that the plane is contained from parent index boxes,
+        # skip checking plane again
+        is_contained = bool(mask & (1 << index))
+        if is_contained:
+            CONTAINED_CT += 1
+            if result == -1:
+                result = CONTAINED
+            continue
+        # first hit point sweeping the box with the hyperplane
+        enter = sweep_box_with_plane_enter(plane, box)
+        enter_dist = signed_distance(enter, plane)
+        if enter_dist >= 0:
+            mask_out += pow(2, index)
+            # only override result when not yet seen
+            if result == -1:
+                result = CONTAINED
+        else:
+            # perform distance comparison first (diagonal length & side of box)
+            # by doing that, we defer sweeping for the far point
+            abs_enter_dist = abs(enter_dist)
+            if abs_enter_dist > diagonal_dist:
+                return NO_INTERACT, mask_out
+            elif abs_enter_dist < box_side_dist:
+                result = INTERACT
+            else:
+                # get last hit point sweeping the box with the hyperplane
+                exit = sweep_box_with_plane_exit(plane, box)
+                exit_dist = signed_distance(exit, plane)
+                if exit_dist >= 0:
+                    result = INTERACT
+                else:
+                    return NO_INTERACT, mask_out
+    # post-condition
+    # result here should be either INTERACT / CONTAINED
+    assert result in (INTERACT, CONTAINED)
+    return result, mask_out
+
 
 def sweep_box_with_plane_enter(hyperplane, box):
     """ Return enter points when 'sweeping' the box with the hyperplane
@@ -483,7 +543,7 @@ def sweep_box_with_plane_exit(hyperplane, box):
 
 # TODO: also make hquery for the Hilbert curve
 
-def nquery(query_planes, query_hi=1023, use_sphere=True):
+def nquery(query_planes, histogram=None, query_hi=1023, max_depth=63, relate=relate_box__sweep_based__with_mask):
     # TODO: find a way to easily express query_hi correctly
     # previously we first found query_hi (largest dim value) based on 
     # max of the query box hi coordinates,
@@ -495,12 +555,10 @@ def nquery(query_planes, query_hi=1023, use_sphere=True):
     # otherwise, we need to make sure that it is large enough -> known from
     # the metadata for scaling/translating the cube and the resolution
 
-    from pysfc import _determine_bits, _nchunks_coord, _nchunks_key
+    from pysfc.pysfc import _determine_bits, _nchunks_coord, _nchunks_key
 
-    if use_sphere:
-        relate = relate_box__sphere_based #relate_box__box_based
-    else:
-        relate = relate_box__box_based #relate_box__box_based
+    FULL = 0
+    PARTIAL = 1
 
 #    maxbits = 63
     ndims = len(query_planes[0].w) #query.dims
@@ -509,15 +567,23 @@ def nquery(query_planes, query_hi=1023, use_sphere=True):
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
     mbits_needed = _determine_bits(query_hi, 2) # max(query.hi)
+
+    max_depth = min(mbits_needed, max_depth)
 #    mbits = maxbits // ndims
     npath = ()
+    mask = 0 # all hyperplanes not contained
     # post order tree traversal gives nodes in order we want
     # for this, two stacks are used (stack + paths)
     # -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
     paths = []
-    stack = [npath]
+
+    # -- for collecting statistics
+    global TESTED_CT, CONTAINED_CT
+    TESTED_CT, CONTAINED_CT = 0, 0
+
+    stack = [(npath, mask)]
     while stack:
-        npath = stack.pop() 
+        npath, mask = stack.pop()
         cur_level = len(npath)
         lo = _nchunks_coord(npath, ndims)
         # side_at_depth 
@@ -527,43 +593,79 @@ def nquery(query_planes, query_hi=1023, use_sphere=True):
         lo = tuple(map(lambda x: x * side_at_depth, lo))
         hi = tuple(map(lambda x: x + side_at_depth, lo))
         cur_node = ndbox(lo, hi)
-#        print(visualize_box_2d(cur_node))
 
-        # [ ] TODO: == optimization ==
+        # == optimization ==
         # we can omit testing a plane for kids boxes if
         # parent box is completely at correct side of this hyperplane already
-        # -> result of spatial relate test will again be true for splitted boxes
-        ndcmp = relate(query_planes, cur_node)
+        # ⇒ result of spatial relate test will again be true for splitted boxes
+        # this is encoded in mask int
+        ndcmp, mask = relate(query_planes, cur_node, mask)
+        
         # -- full overlap, contained
         if ndcmp == CONTAINED:
-            paths.append(npath)
+            paths.append((npath, FULL, None))
         # -- partial overlap
         elif ndcmp == INTERACT:
-            # FIXME: re-introduce maxdepth argument !
-            if cur_level < mbits_needed:
+
+            # let's find how many points approximately live in this region
+            # if we have a histogram available 
+            # (i.e. counts near the top of the tree)
+            if histogram is not None and cur_level < histogram.max_depth:
+                estimated_count = histogram.query(npath)
+                # FIXME: make it that we do not have to expose sampling rate in histogram
+                if estimated_count > 0:
+                    # sampling rate == 100
+                    estimated_count *= 100
+
+## TODO: if we sample while constructing the histogram,
+##       then we can never be sure that there is no point at *all*
+##       if we visit all points in the input, we can be sure
+##       (but this comes with the cost of having to scan all points)
+#                if estimated_count == -1:
+#                    # no points according to histogram
+#                    # we will not append any range, nor refine
+#                    continue
+
+                if estimated_count <= 800:
+                    # not that much points in this bucket
+                    # we stop refinement and will just consider the range
+                    # adding estimated_count to our output
+                    paths.append((npath, PARTIAL, estimated_count))
+                    continue
+
+            # [*] re-introduce maxdepth argument !
+            if cur_level < max_depth: # mbits_needed:
                 # we have not yet reached the lowest level, recurse
                 for ncode in range(2**ndims):
                     new_path = npath + (ncode, )
-                    stack.append(new_path)
+                    stack.append((new_path, mask))
             else:
                 # we are not allowed to go further, so use this partial
                 # overlapping range as is
-                paths.append(npath)
+                paths.append((npath, PARTIAL, None))
+
         # -- disjoint, we do not need to process further this path down the tree
         elif ndcmp == NO_INTERACT:
             continue
+
+    print(TESTED_CT, "tested planes | ",
+          CONTAINED_CT, "contained planes skipped | ",
+          "{:.2f}%".format(CONTAINED_CT / TESTED_CT * 100))
+
+    # -- setup the correct output ranges
     result = []
     while paths:
-        npath = paths.pop()
+        npath, containment_type, hist_count = paths.pop()
         # if the npath has less than mbits_needed values,
         # we need to add 0's to the end of the list:
-        # -> this happens inside _nchunks_key
+        # → this happens inside _nchunks_key
         start = _nchunks_key(npath, mbits_needed, ndims)
         side_at_depth = 2 ** (mbits_needed - len(npath))
         range_size = side_at_depth**ndims
         end = start + range_size
+        ## other way round: nDims(√)(end-start) → (end - start)**(1/nDims)
 #        print npath, start, end, range_size
-        result.append((start, end))
+        result.append((start, end, containment_type, hist_count))
     return result
 
 
@@ -955,13 +1057,13 @@ def visualize_2d_boxes_against_some_planes():
         writer.writerows(outcomes)
 
 
-def visualize_halfplane_2d(h, filenm='/tmp/planes.txt'):
+def visualize_halfplane_2d(h, size=1000., filenm='/tmp/planes.txt'):
     from pysfc.vectorops import rotate90ccw, rotate90cw, add, mul
     # make 2D line of 2000 units long + the normal
     ccw = rotate90ccw(h.w)
     cw = rotate90cw(h.w)
-    start = add(mul(cw, 1000.), h.through)
-    end = add(mul(ccw, 1000.), h.through)
+    start = add(mul(cw, size), h.through)
+    end = add(mul(ccw, size), h.through)
     with open(filenm, 'a') as fh:
         fh.write("LINESTRING({0[0]} {0[1]} , {1[0]} {1[1]})\tplane".format(start, end))
         fh.write('\n')
@@ -969,41 +1071,57 @@ def visualize_halfplane_2d(h, filenm='/tmp/planes.txt'):
         fh.write('\n')
 
 
-def measure_performance(which):
+def measure_performance(which, ndims):
     """
     To run a mini-timing benchmark, in the shell run:
 
-    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sphere")'
-    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("corner")'
-    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sweep")'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sphere", 2)'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("corner", 2)'
+    $ python3 -O -mtimeit -n 5 -r 5  -s'from pysfc import ndgeom' 'ndgeom.measure_performance("sweep", 2)'
     """
 
     # TODO: == introduce higher dimensions ==
     # -> the higher the dimensions, the more vertices per hyperbox,
     # so the larger the difference with the sphere/sweep representation
 
-    hp0 = HyperPlane([-1, 1, 0, 0], 0) # -x,+y, through [0, 0]
-    hp0.normalize()
-    planes = [
-        hp0,
-        HyperPlane([0, 1, 0, 0], 0), # +y, through [0, 0]
-        HyperPlane([-1, 0, 0, 0], -10), # +x, through [10, 0]
-    ]
-    step = 1
+#    w = [-1, 1]
+#    if len(w) < ndims:
+#        w += [0] * (len(w) - ndims)
+#    hp0 = HyperPlane(w, 0) # -x,+y, through [0, 0]
+#    hp0.normalize()
+
+#    w = [0, 1]
+#    if len(w) < ndims:
+#        w += [0] * (len(w) - ndims)
+#    hp1 = HyperPlane(w, 0) # +y, through [0, 0]
+#    hp1.normalize()
+
+#    w = [-1, 0]
+#    if len(w) < ndims:
+#        w += [0] * (len(w) - ndims)
+#    hp2 = HyperPlane(w, -10) # +x, through [10, 0]
+#    hp2.normalize()
+#    planes = [hp0, hp1, hp2]
+
+    b = ndbox((-2.5,) * ndims, (2.5,)*ndims)
+    planes = as_hyperplanes(b)
 
     lut = {
         'sphere': relate_box__sphere_based,
         'corner': relate_box__box_based,
         'sweep': relate_box__sweep_based,
     }
-    r = lut[which]
-    lo, hi = -5, 6
-    for x in range (lo, hi, step):
-        for y in range (lo, hi, step):
-            for z in range (lo, hi, step):
-                for k in range (lo, hi, step):
-                    b = ndbox((x,y,z, k), (x+step, y+step, z+step, k+step))
-                    relate = r(planes, b)
+    rel_func = lut[which]
+    lo, hi = -5, 5
+    step = 1
+    r = range(lo, hi)
+    from itertools import product
+    ranges = [range (lo, hi)] * ndims
+    for item in product(*ranges):
+        lo = item
+        hi = tuple(map(lambda x: x+ step, item))
+        b = ndbox(lo, hi)
+        relate = rel_func(planes, b)
 
 
 def dist_comp():
