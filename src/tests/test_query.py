@@ -1,9 +1,9 @@
 import unittest
 from pysfc.relate import ndbox
-from pysfc.pysfc import hquery
-from pysfc.pysfc import nquery
+from pysfc.encode_decode import hquery
+from pysfc.encode_decode import nquery
 
-from pysfc.range_pack import filter_ranges_by_gapsize
+from pysfc.range_pack import glue_ranges_by_gapsize
 
 from makeboxes import make_boxes
 from query_brute import brute
@@ -184,8 +184,8 @@ class TestQueryFrameworkND(unittest.TestCase):
                 expected.sort()
                 obtained.sort()
                 # glue adjacent + consecutive ranges
-                expected = filter_ranges_by_gapsize(expected)
-                obtained = filter_ranges_by_gapsize(obtained)
+                expected = glue_ranges_by_gapsize(expected)
+                obtained = glue_ranges_by_gapsize(obtained)
                 assert expected == obtained, "\n{}\n expected ranges: {}\n obtained ranges: {}\n function: {}".format(box, expected, obtained, func)
 
     def test_sorted(self):

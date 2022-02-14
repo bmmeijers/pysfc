@@ -1,7 +1,9 @@
 from math import ceil, log
-from collections import deque
+# from collections import deque
 from operator import itemgetter
 from pysfc.relate import ndbox, relate
+
+# FIXME: rename file to encode_decode.py (e.g. from pysfc.encode_decode import nenc, ndec)
 
 #
 # Conversion of nD coordinate to SFC key and vice versa
@@ -28,11 +30,52 @@ from pysfc.relate import ndbox, relate
 #        (1D value, steps on the SFC from the start)
 #
 
-def _determine_bits(val, base):
-    # gives exponent for next power of 2
-    # next = pow(2, ceil(log(x)/log(2)));
-    return max(1, int(ceil(log(val+1, base))))
+# def _determine_bits(val, base):
+#     # gives exponent for next power of 2
+#     # next = pow(2, ceil(log(x)/log(2)));
+#     needed_bits = max(1, int(ceil(log(max(val, 1), base))))
+#     # print(needed_bits)
+#     return needed_bits
 
+# def _determine_bits(val, base):
+#     if val > 0:
+#         return int(ceil(log(val, base)))
+#     else:
+#         return 0
+
+# def _determine_bits(val, base):
+#     # gives exponent for next power of 2
+#     # next = pow(2, ceil(log(x)/log(2)));
+
+#     #
+#     # FIXME:
+#     #
+#     # we add 1 to the result, so we always have sufficient bits
+#     # however, we then use more chunks then we potentially need
+#     # this does not influence correctness of the result, but we
+#     # can potentially make do with 1 bit less
+#     #
+#     # maybe we should replace this function at all
+#     # with the following:
+#     #
+#         # def _count_bits(n, base):
+#         #     count = 0
+#         #     while (n):
+#         #         count +=1
+#         #         n >>= base
+#         #     return count
+#     return max(1, int(ceil(log(val+1, base))))
+#     #return max(1, int(ceil(log(val+1, base)))) + 1
+
+def _determine_bits(n, base):
+    count = 0
+    while (n):
+        count +=1
+        n >>= base
+    return count
+
+
+# _count_bits = _determine_bits
 
 def _transpose_bits(srcs, nDests):
     srcs = list(srcs)                   # Make a copy we can modify safely.
@@ -83,20 +126,22 @@ _nchunks_key = _chunks_key
 
 
 def _key_nchunks(key, mbits, ndims):
-    """Convert Morton key into nchunks list
+    """Convert Morton key into nchunks tuple
 
     For example:
 
         >>> _key_nchunks(45, 3, 2)
-        [2, 3, 1]
+        (2, 3, 1)
 
     """
     # EXACT SAME behaviour as _key_hchunks ???
     nchunks = [0] * mbits
-    mask = (1 << ndims) - 1 # number with all bits set to 1, with ndims bits, e.g. ndims = 3 == 0b111
+    # mask is a number with all bits set to 1,
+    # with ndims bits, e.g. ndims = 3 -> (1 << 3) - 1 == 8 - 7 == 7 == 0b111
+    mask = (1 << ndims) - 1 
     for i in range(mbits):
         nchunks[mbits - i - 1] = ((key >> (i * ndims)) & mask)
-    return nchunks
+    return tuple(nchunks)
 
 
 # -- Hilbert specifics: for rotation and mirroring of the curve pattern --------
@@ -256,7 +301,7 @@ def _key_hchunks(key, mbits, ndims):
     for h in hchunks:
         assert type(h) in [int], "Expected int, but found: {}".format(type(p))
 
-    return hchunks
+    return tuple(hchunks)
 
 
 # Public api, encode and decode, n-order (nenc+ndec) and hilbert (henc + hdec)
@@ -264,25 +309,45 @@ def _key_hchunks(key, mbits, ndims):
 
 # -- Morton (N-order)
 def nenc(coord):
-    mbits = _determine_bits(max(coord), 2)
+    #mbits = _determine_bits(max(coord), 2)
+    mbits = _determine_bits(max(coord), 1) # finds next power of two that surrounds max(coord)
     ndims = len(coord)
     #
     nchunks = _coord_nchunks(coord, mbits)
     key = _hchunks_key(nchunks, mbits, ndims)
+    # print("   nenc --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", nchunks, "key:", key, "coord:", coord)
     return key
 
 
+# def ndec(key, ndims):
+#     #mbits = _determine_bits(key, 2**ndims)
+#     mbits = _determine_bits(key, 2**ndims)
+#     # print(mbits)
+#     #
+#     nchunks = _key_nchunks(key, mbits, ndims)
+#     coord = _nchunks_coord(nchunks, ndims)
+#     # print(nchunks, coord)
+#     return tuple(coord)
+
+
 def ndec(key, ndims):
-    mbits = _determine_bits(key, 2**ndims)
+    #mbits = _determine_bits(key, 2**ndims)
+    mbits = _determine_bits(key, ndims)
+    # print(mbits)
     #
     nchunks = _key_nchunks(key, mbits, ndims)
     coord = _nchunks_coord(nchunks, ndims)
-    return tuple(coord)
+
+    # print("   ndec --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", nchunks, "key:", key, "coord:", coord)
+    # print(nchunks, coord)
+    # return mbits, nchunks, coord
+    return coord
 
 
 # -- Hilbert
 def henc(coord):
-    mbits = _determine_bits(max(coord), 2)
+    #mbits = _determine_bits(max(coord), 2)
+    mbits = _determine_bits(max(coord), 1)
     ndims = len(coord)
     #
     nchunks = _coord_nchunks(coord, mbits)
@@ -292,11 +357,14 @@ def henc(coord):
     # likely be some factor faster)
     hchunks = _nchunks_to_hchunks(nchunks, mbits, ndims)
     key = _hchunks_key(hchunks, mbits, ndims)
+    # print("   henc --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
     return key
 
 
 def hdec(key, ndims):
-    mbits = _determine_bits(key, 2**ndims)
+    #mbits = _determine_bits(key, 2**ndims)
+    #mbits = _determine_bits(key, 2**ndims)
+    mbits = _determine_bits(key, ndims)
     #
     assert type(mbits) in [int]
     assert type(key) in [int]
@@ -305,6 +373,7 @@ def hdec(key, ndims):
 
     nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
     coord = _nchunks_coord(nchunks, ndims)
+    # print("   hdec --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
     return tuple(coord)
 
 
@@ -315,7 +384,7 @@ def nquery(query):
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), 2)
+    mbits_needed = _determine_bits(max(query.hi), 1)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
@@ -366,14 +435,17 @@ def nquery(query):
     return result
 
 
-def hquery(query):
+def hquery(query, histogram = None, max_depth = None):
 #    maxbits = 63
     ndims = query.dims
     # get how many bits we need
     # to represent the largest number inside the query box
     # --> 2**(mbits_needed) is the maximum size of a side 
     #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), 2)
+    mbits_needed = _determine_bits(max(query.hi), 1)
+    if max_depth is None:
+        max_depth = mbits_needed
+    # print("max_depth", max_depth)
 #    mbits = maxbits // ndims
     npath = ()
     # post order tree traversal gives nodes in order we want
@@ -391,12 +463,36 @@ def hquery(query):
         hi = tuple(map(lambda x: int(x + side_at_depth), lo))
         cur_node = ndbox(lo, hi)
         ndcmp = relate(query, cur_node)
+        # debug print, what is the query, the node of the n-ary tree and its relationship
+        ## print(query, cur_node, ndcmp)
+        # 0: equal
+        # 1: contains
+        # 2: intersects
+        # -1: no overlap
         if ndcmp in (0, 1,):
             paths.append(npath)
         # -- partial overlap
         elif ndcmp in (2,):
+
+            if histogram is not None and cur_level < 4: 
+                # print("checking hist")
+                # print(cur_level, npath)
+                estimated_count = histogram[npath]
+                # print(estimated_count)
+
+                if estimated_count == 0:
+                    print(f"no points in this range according to histogram {npath}")
+                    # no points in this part of the cube, for sure
+                    continue
+                elif estimated_count < 100_000:
+                    # limited points in this part of the cube, for sure
+                    print(npath, "has less than 100'000 points:", estimated_count, 'no refinement')
+                    paths.append(npath)
+                    continue
+
+
             # FIXME: re-introduce maxdepth argument !
-            if cur_level < mbits_needed:
+            if cur_level < max_depth and cur_level < mbits_needed:
                 # we have not yet reached the lowest level, recurse
                 childs = []
                 for ncode in range(2**ndims):
@@ -429,7 +525,7 @@ def hquery(query):
 
 
 
-#if __name__ == "__main__":
+# if __name__ == "__main__":
 #    pass
 #    ndims = 2
 #    for i in range(4):

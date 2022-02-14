@@ -1,4 +1,4 @@
-from pysfc.pysfc import _determine_bits, _key_nchunks, _key_hchunks, _hchunks_to_nchunks, _nchunks_coord
+from pysfc.encode_decode import _determine_bits, _key_nchunks, _key_hchunks, _hchunks_to_nchunks, _nchunks_coord
 from pysfc.ndgeom import ndbox
 
 # FIXME: 
@@ -74,7 +74,7 @@ class Histogram(object):
 if __name__ == "__main__":
 #    import pprint
     from pysfc.ndgeom import visualize_box_2d
-    from pysfc.pysfc import nenc, henc
+    from pysfc.encode_decode import nenc, henc
 
     side = 64
     mbits = _determine_bits(side-1, 2)

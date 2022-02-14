@@ -1,11 +1,12 @@
 import unittest
 
-from pysfc.pysfc import henc, hdec
-from pysfc.pysfc import nenc, ndec
+from pysfc.encode_decode import henc, hdec
+from pysfc.encode_decode import nenc, ndec
 
-maxside = 2**2
+# maxside = 2**2
 # maxside = 2**3
-# maxside = 2**4
+maxside = 2**4
+# maxside = 2**5
 
 
 class TestEncodingDecoding(unittest.TestCase):
@@ -27,7 +28,7 @@ class TestEncodingDecoding(unittest.TestCase):
                 c = (x, y)
                 e = encode(c)
                 d = decode(e, 2)
-                assert c == d
+                self.assertEqual(c, d)
         # 3D
         for x in range(maxside):
             for y in range(maxside):
@@ -35,7 +36,7 @@ class TestEncodingDecoding(unittest.TestCase):
                     c = (x, y, z)
                     e = encode(c)
                     d = decode(e, 3)
-                    assert c == d
+                    self.assertEqual(c, d)
         # 4D
         for x in range(maxside):
             for y in range(maxside):
@@ -44,7 +45,7 @@ class TestEncodingDecoding(unittest.TestCase):
                         c = (x, y, z, t)
                         e = encode(c)
                         d = decode(e, 4)
-                    assert c == d
+                        self.assertEqual(c, d)
         # 5D
         for x in range(maxside):
             for y in range(maxside):
@@ -54,7 +55,7 @@ class TestEncodingDecoding(unittest.TestCase):
                             c = (x, y, z, t, s)
                             e = encode(c)
                             d = decode(e, 5)
-                        assert c == d
+                            self.assertEqual(c, d)
 
 
     def test_nsmall(self):
@@ -99,7 +100,18 @@ class TestEncodingDecoding(unittest.TestCase):
         assert henc((7,9,15)) == 2049
         assert hdec(2049, 3) == (7, 9, 15)
 
-#def test():
+
+    def test_4d(self):
+        key = 72057594037927936
+        n_dims = 4
+        assert ndec(key, n_dims) != (0,0,0,0)
+
+def test_manual():
+    # key = 72057594037927936-1
+    key = 72057594037927936
+    key = 72057594037927936+2
+    n_dims = 4
+    assert ndec(key, n_dims) != (0,0,0,0)
 
 #    _test_nsmall()
 #    _test_hsmall()
@@ -107,4 +119,7 @@ class TestEncodingDecoding(unittest.TestCase):
 #    _test_lengthy(2**4, henc, hdec)
 
 if __name__ == "__main__":
+    #test_manual()
     unittest.main()
+
+

@@ -37,7 +37,7 @@ def sizes(ranges):
 #    return out
 
 
-def filter_ranges_by_gapsize(ranges, max_gap_size=0):
+def glue_ranges_by_gapsize(ranges, max_gap_size=0):
     """ 
     Go over all ranges and those that should form 1 longer range, glue them
 

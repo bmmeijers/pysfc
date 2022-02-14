@@ -1,5 +1,7 @@
 def calculate_scale(old_lower, old_upper, new_lower, new_upper):
     old_lower, old_upper, new_lower, new_upper = map(float, [old_lower, old_upper, new_lower, new_upper])
+    # FIXME: not consistent with Rust version at the moment
+    raise NotImplementedError("still to apply ceil / floor")
     delta_old = old_upper - old_lower
     delta_new = new_upper - new_lower
     scale = delta_new / delta_old
@@ -22,7 +24,7 @@ def _test_one():
     val = 0
     x = transform_dimension(val, translate, scale)
     y = transform_dimension_inverse(x, translate, scale)
-    print val, '=>', x, '=>', y
+    print(val, '=>', x, '=>', y)
 
 
 def _test_brute():

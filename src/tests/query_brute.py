@@ -6,8 +6,8 @@ this module should *only* be used for
 testing / verifying correctness of the implementation
 """
 
-from pysfc.pysfc import henc as hencode
-from pysfc.pysfc import nenc as nencode
+from pysfc.encode_decode import henc as hencode
+from pysfc.encode_decode import nenc as nencode
 
 from pysfc.relate import ndbox
 

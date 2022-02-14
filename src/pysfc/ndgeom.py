@@ -1,6 +1,18 @@
 import sys
+# from pysfc.relate import bitreverse
 from pysfc.vectorops import mul, dot, norm, cross, unit, sub, add
 from itertools import product
+
+
+def bitreverse(n, bits):
+    N = 1 << bits           # find N: shift left 1 by the number of bits
+    nrev = n                # nrev will store the bit-reversed pattern
+    for i in range(1, bits):
+        n >>= 1
+        nrev <<= 1
+        nrev |= n & 1       # give LSB of n to nrev
+    nrev &= N - 1           # clear all bits more significant than N-1
+    return nrev
 
 # [*] Figure out 'handedness' of planes <--> what should be positive side/negative side?
 ##
@@ -555,7 +567,7 @@ def nquery(query_planes, histogram=None, query_hi=1023, max_depth=63, relate=rel
     # otherwise, we need to make sure that it is large enough -> known from
     # the metadata for scaling/translating the cube and the resolution
 
-    from pysfc.pysfc import _determine_bits, _nchunks_coord, _nchunks_key
+    from pysfc.encode_decode import _determine_bits, _nchunks_coord, _nchunks_key
 
     FULL = 0
     PARTIAL = 1
@@ -1158,8 +1170,8 @@ def dist_comp():
 
 
 def try_orig_nquery():
-    from pysfc.pysfc import nquery as orig_nquery
-    from pysfc.pysfc import hquery as orig_hquery
+    from pysfc.encode_decode import nquery as orig_nquery
+    from pysfc.encode_decode import hquery as orig_hquery
     from pprint import pprint
     #b = ndbox([2.0,2.0],[30.0,30.0])
     b = ndbox([15.4, 15.4], [15.6, 15.6])
