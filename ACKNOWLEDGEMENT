@@ -1,5 +1,7 @@
 # Acknowledgement
 
+## Hilbert SFC
+
 The Hilbert code in this package is based on the original work of Steve Witham.
 
 The web page is not reachable any more, but archive.org contains a cached copy:
@@ -7,4 +9,6 @@ The web page is not reachable any more, but archive.org contains a cached copy:
 - http://web.archive.org/web/20170930074441/http://www.tiac.net/~sw/2008/10/Hilbert/hilbert.py
 - http://web.archive.org/web/20170918004707/www.tiac.net/~sw/2008/10/Hilbert/
 
+## Convex polytope
 
+The convex polytope code is a modification of the original work done by Rod Thompson.
