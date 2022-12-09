@@ -1,9 +1,5 @@
-from math import ceil, log
-# from collections import deque
-from operator import itemgetter
-from pysfc.relate import ndbox, relate
-
-# FIXME: rename file to encode_decode.py (e.g. from pysfc.encode_decode import nenc, ndec)
+from functools import lru_cache
+# from operator import itemgetter
 
 #
 # Conversion of nD coordinate to SFC key and vice versa
@@ -30,52 +26,16 @@ from pysfc.relate import ndbox, relate
 #        (1D value, steps on the SFC from the start)
 #
 
-# def _determine_bits(val, base):
-#     # gives exponent for next power of 2
-#     # next = pow(2, ceil(log(x)/log(2)));
-#     needed_bits = max(1, int(ceil(log(max(val, 1), base))))
-#     # print(needed_bits)
-#     return needed_bits
-
-# def _determine_bits(val, base):
-#     if val > 0:
-#         return int(ceil(log(val, base)))
-#     else:
-#         return 0
-
-# def _determine_bits(val, base):
-#     # gives exponent for next power of 2
-#     # next = pow(2, ceil(log(x)/log(2)));
-
-#     #
-#     # FIXME:
-#     #
-#     # we add 1 to the result, so we always have sufficient bits
-#     # however, we then use more chunks then we potentially need
-#     # this does not influence correctness of the result, but we
-#     # can potentially make do with 1 bit less
-#     #
-#     # maybe we should replace this function at all
-#     # with the following:
-#     #
-#         # def _count_bits(n, base):
-#         #     count = 0
-#         #     while (n):
-#         #         count +=1
-#         #         n >>= base
-#         #     return count
-#     return max(1, int(ceil(log(val+1, base))))
-#     #return max(1, int(ceil(log(val+1, base)))) + 1
-
 def _determine_bits(n, base):
+    """Determine how many words we need to represent integer *n*
+    *base* encodes how many bits a word contains
+    """
     count = 0
     while (n):
         count +=1
         n >>= base
     return count
 
-
-# _count_bits = _determine_bits
 
 def _transpose_bits(srcs, nDests):
     srcs = list(srcs)                   # Make a copy we can modify safely.
@@ -90,16 +50,27 @@ def _transpose_bits(srcs, nDests):
     return tuple(dests)
 
 
+# def _chunks_key(chunks, mbits, ndims):
+#     key = 0
+#     nd = 2**ndims
+#     for m in range(mbits):
+#         if m >= len(chunks):
+#             chunk = 0
+#         else:
+#             chunk = chunks[m]
+#         key = key * nd + chunk
+#     return key
+
 def _chunks_key(chunks, mbits, ndims):
     key = 0
     nd = 2**ndims
     for m in range(mbits):
-        if m >= len(chunks):
-            chunk = 0
-        else:
+        chunk = 0
+        if m < len(chunks):
             chunk = chunks[m]
         key = key * nd + chunk
     return key
+
 
 # equivalent code:
 #def pack_index(chunks, nD):
@@ -146,7 +117,7 @@ def _key_nchunks(key, mbits, ndims):
 
 # -- Hilbert specifics: for rotation and mirroring of the curve pattern --------
 
-
+@lru_cache(maxsize=None)
 def _hgray_encode(bn):
     # Gray encoder and decoder from http://en.wikipedia.org/wiki/Gray_code
     assert bn >= 0
@@ -154,6 +125,7 @@ def _hgray_encode(bn):
     return bn ^ (bn // 2)
 
 
+@lru_cache(maxsize=None)
 def _hgray_decode(n):
     assert type(n) in [int], "Expected int, but found: {}".format(type(n))
     sh = 1
@@ -165,6 +137,7 @@ def _hgray_decode(n):
         sh <<= 1
 
 
+@lru_cache(maxsize=None)
 def _hgray_encode_travel(start, end, mask, i):
     assert type(start) in [int], "Expected int, but found: {}".format(type(start))
     assert type(end) in [int], "Expected int, but found: {}".format(type(end))
@@ -181,14 +154,20 @@ def _hgray_encode_travel(start, end, mask, i):
     #    then xors ("^" in Python) with the start value.
     travel_bit = start ^ end
     modulus = mask + 1          # == 2**nBits
+    #print(f"travel_bit {travel_bit}")
+    #print(f"modulus {modulus}")
     # travel_bit = 2**p, the bit we want to travel.
     # Canonical Gray code travels the top bit, 2**(nBits-1).
     # So we need to rotate by ( p - (nBits-1) ) == (p + 1) mod nBits.
     # We rotate by multiplying and dividing by powers of two:
     g = _hgray_encode(i) * (travel_bit * 2)
-    return ((g | (g // modulus)) & mask) ^ start
+    #print(f"g {g}")
+    result =  ((g | (g // modulus)) & mask) ^ start
+    #print(f"result {result}")
+    return result
 
 
+@lru_cache(maxsize=None)
 def _hgray_decode_travel(start, end, mask, g):
     travel_bit = start ^ end
     modulus = mask + 1          # == 2**nBits
@@ -197,6 +176,7 @@ def _hgray_decode_travel(start, end, mask, g):
     return result
 
 
+@lru_cache(maxsize=None)
 def _hchild_start_end(parent_start, parent_end, mask, i):
     # child_start_end( parent_start, parent_end, mask, i ) 
     # -- Get start & end for child.
@@ -242,7 +222,10 @@ def _hchild_start_end(parent_start, parent_end, mask, i):
     #    and last flip.
     #    The pattern works for any nD >= 1.
     start_i = max(0, (i - 1) & ~1)  # next lower even number, or 0
+    #print(f"start_i {start_i}")
     end_i = min(mask, (i + 1) | 1)  # next higher odd number, or mask
+    #print(f"end_i {end_i}")
+    # print(parent_start, parent_end, mask, start_i)
     child_start = _hgray_encode_travel(parent_start, parent_end, mask, start_i)
     child_end = _hgray_encode_travel(parent_start, parent_end, mask, end_i)
     return child_start, child_end
@@ -273,12 +256,18 @@ def _hchunks_to_nchunks(hchunks, mbits, ndims):
 
 def _nchunks_to_hchunks(nchunks, mbits, ndims):
     nchunks_len = len(nchunks)
+    #print(f"nchunks_len {nchunks_len}")
     mask = 2 ** ndims - 1
+    #print(f"mask {mask}")
     start, end = _hinitial_start_end(mbits, ndims)
+    #print(f"start {start} end {end}")
     hchunks = [0] * nchunks_len
     for j, nchunk in enumerate(nchunks):
+        #print(f"nchunk {nchunk}")
         hchunks[j] = _hgray_decode_travel(start, end, mask, nchunk)
         start, end = _hchild_start_end(start, end, mask, hchunks[j])
+        #print(f"start {start}, end {end}, mask {mask}, hchunks[j] {hchunks[j]}")
+        #print("")
     return tuple(hchunks)
 
 
@@ -306,28 +295,91 @@ def _key_hchunks(key, mbits, ndims):
 
 # Public api, encode and decode, n-order (nenc+ndec) and hilbert (henc + hdec)
 
+# -- Morton (N-order)
+# def nenc_fixed(coord, mbits, ndims): # ndims is also the len(coord) -- should it be in the api?
+#     #mbits = _determine_bits(max(coord), 2)
+#     # find next power of two that surrounds cube fully, i.e. max(coord)
+#     # mbits = _determine_bits(max(coord), 1) 
+#     # print(mbits)
+#     ndims = len(coord)
+#     #
+#     nchunks = _coord_nchunks(coord, mbits)
+#     #print(nchunks)
+    
+#     key_arr_u8 = pack(nchunks, mbits, ndims)
+#     return key_arr_u8
+
+
+# def ndec_fixed(key_arr_u8, mbits, ndims):
+#     #packer = BitPacker(mbits, ndims)
+#     nchunks = unpack(key_arr_u8, mbits, ndims)
+#     #mbits = _determine_bits(key, 2**ndims)
+#     #mbits = _determine_bits(key, ndims)
+#     # print(mbits)
+#     #
+#     #nchunks = _key_nchunks(key, mbits, ndims)
+#     coord = _nchunks_coord(nchunks, ndims)
+
+#     # print("   ndec --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", nchunks, "key:", key, "coord:", coord)
+#     # print(nchunks, coord)
+#     # return mbits, nchunks, coord
+#     return coord
+
+
+# -- Hilbert
+# def henc_fixed(coord, mbits, ndims):
+#     #mbits = _determine_bits(max(coord), 2)
+#     #mbits = _determine_bits(max(coord), 1)
+#     #ndims = len(coord)
+#     #
+#     #print("coord", coord, "mbits", mbits)
+#     nchunks = _coord_nchunks(coord, mbits)
+#     #print(nchunks, mbits, ndims)
+#     # FIXME: can we replace the following function call
+#     # by look ups in dictionaries? size of the lut's does depend on ndims
+#     # so memory consumption will grow with higher dims (but runtime will most
+#     # likely be some factor faster)
+#     hchunks = _nchunks_to_hchunks(nchunks, mbits, ndims)
+#     #print(hchunks)
+#     #key = _hchunks_key(hchunks, mbits, ndims)
+#     # print("   henc --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
+#     #return key
+#     key_arr_u8 = pack(hchunks, mbits, ndims)
+#     return key_arr_u8
+
+
+# def hdec_fixed(key_arr_u8, mbits, ndims):
+#     #mbits = _determine_bits(key, 2**ndims)
+#     #mbits = _determine_bits(key, 2**ndims)
+#     #mbits = _determine_bits(key, ndims)
+#     #
+#     #assert type(mbits) in [int]
+#     #assert type(key) in [int]
+#     #assert type(ndims) in [int]
+#     hchunks = unpack(key_arr_u8, mbits, ndims)
+#     #print(hchunks)
+#     nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
+#     #print(nchunks)
+#     coord = _nchunks_coord(nchunks, ndims)
+#     # print("   hdec --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
+#     return tuple(coord)
+
+
+
+
 
 # -- Morton (N-order)
 def nenc(coord):
     #mbits = _determine_bits(max(coord), 2)
-    mbits = _determine_bits(max(coord), 1) # finds next power of two that surrounds max(coord)
+    # find next power of two that surrounds cube fully, i.e. max(coord)
+    mbits = _determine_bits(max(coord), 1) 
+    # print(mbits)
     ndims = len(coord)
     #
     nchunks = _coord_nchunks(coord, mbits)
     key = _hchunks_key(nchunks, mbits, ndims)
     # print("   nenc --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", nchunks, "key:", key, "coord:", coord)
     return key
-
-
-# def ndec(key, ndims):
-#     #mbits = _determine_bits(key, 2**ndims)
-#     mbits = _determine_bits(key, 2**ndims)
-#     # print(mbits)
-#     #
-#     nchunks = _key_nchunks(key, mbits, ndims)
-#     coord = _nchunks_coord(nchunks, ndims)
-#     # print(nchunks, coord)
-#     return tuple(coord)
 
 
 def ndec(key, ndims):
@@ -350,12 +402,15 @@ def henc(coord):
     mbits = _determine_bits(max(coord), 1)
     ndims = len(coord)
     #
+    #print("coord", coord, "mbits", mbits)
     nchunks = _coord_nchunks(coord, mbits)
+    #print(nchunks, mbits, ndims)
     # FIXME: can we replace the following function call
     # by look ups in dictionaries? size of the lut's does depend on ndims
     # so memory consumption will grow with higher dims (but runtime will most
     # likely be some factor faster)
     hchunks = _nchunks_to_hchunks(nchunks, mbits, ndims)
+    #print(hchunks)
     key = _hchunks_key(hchunks, mbits, ndims)
     # print("   henc --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
     return key
@@ -370,195 +425,9 @@ def hdec(key, ndims):
     assert type(key) in [int]
     assert type(ndims) in [int]
     hchunks = _key_hchunks(key, mbits, ndims)
-
+    #print(hchunks)
     nchunks = _hchunks_to_nchunks(hchunks, mbits, ndims)
+    #print(nchunks)
     coord = _nchunks_coord(nchunks, ndims)
     # print("   hdec --", "bitlength(key):", key.bit_length(), "mbits:", mbits, "nchunks:", hchunks, "key:", key, "coord:", coord)
     return tuple(coord)
-
-
-def nquery(query):
-#    maxbits = 63
-    ndims = query.dims
-    # get how many bits we need
-    # to represent the largest number inside the query box
-    # --> 2**(mbits_needed) is the maximum size of a side 
-    #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), 1)
-#    mbits = maxbits // ndims
-    npath = ()
-    # post order tree traversal gives nodes in order we want
-    # for this, two stacks are used (stack + paths)
-    # -- https://algorithms.tutorialhorizon.com/binary-tree-postorder-traversal-non-recursive-approach/
-    paths = []
-    stack = [npath]
-    while stack:
-        npath = stack.pop() 
-        cur_level = len(npath)
-        lo = _nchunks_coord(npath, ndims)
-        # side_at_depth 
-        # how large side of the nd-cube is at this depth
-        side_at_depth = 2**(mbits_needed - cur_level)
-        lo = tuple(map(lambda x: int(x * side_at_depth), lo))
-        hi = tuple(map(lambda x: int(x + side_at_depth), lo))
-        cur_node = ndbox(lo, hi)
-        ndcmp = relate(query, cur_node)
-        if ndcmp in (0, 1,):
-            paths.append(npath)
-        # -- partial overlap
-        elif ndcmp in (2,):
-            # FIXME: re-introduce maxdepth argument !
-            if cur_level < mbits_needed:
-                # we have not yet reached the lowest level, recurse
-                for ncode in range(2**ndims):
-                    new_path = npath + (ncode, )
-                    stack.append(new_path)
-            else:
-                # we are not allowed to go further, so use this partial
-                # overlapping range as is
-                paths.append(npath)
-        # -- disjoint, we do not need to process further this path down the tree
-        elif ndcmp in (-1,):
-            continue
-    result = []
-    while paths:
-        npath = paths.pop()
-        # if the npath has less than mbits_needed values,
-        # we need to add 0's to the end of the list:
-        # -> this happens inside _nchunks_key
-        start = _nchunks_key(npath, mbits_needed, ndims)
-        side_at_depth = 2 ** (mbits_needed - len(npath))
-        range_size = side_at_depth**ndims
-        end = start + range_size
-#        print npath, start, end, range_size
-        result.append((start, end))
-    return result
-
-
-def hquery(query, histogram = None, max_depth = None):
-#    maxbits = 63
-    ndims = query.dims
-    # get how many bits we need
-    # to represent the largest number inside the query box
-    # --> 2**(mbits_needed) is the maximum size of a side 
-    #     of the domain that we need
-    mbits_needed = _determine_bits(max(query.hi), 1)
-    if max_depth is None:
-        max_depth = mbits_needed
-    # print("max_depth", max_depth)
-#    mbits = maxbits // ndims
-    npath = ()
-    # post order tree traversal gives nodes in order we want
-    # for this, two stacks are used (stack + paths)
-    stack = [npath]
-    paths = []
-    while stack:
-        npath = stack.pop() 
-#        npath = stack.popleft()
-        cur_level = len(npath)
-        lo = _nchunks_coord(npath, ndims)
-        # side_size_at_depth how large is a side of the cube at this depth?
-        side_at_depth = 2 ** (mbits_needed - cur_level)
-        lo = tuple(map(lambda x: int(x * side_at_depth), lo))
-        hi = tuple(map(lambda x: int(x + side_at_depth), lo))
-        cur_node = ndbox(lo, hi)
-        ndcmp = relate(query, cur_node)
-        # debug print, what is the query, the node of the n-ary tree and its relationship
-        ## print(query, cur_node, ndcmp)
-        # 0: equal
-        # 1: contains
-        # 2: intersects
-        # -1: no overlap
-        if ndcmp in (0, 1,):
-            paths.append(npath)
-        # -- partial overlap
-        elif ndcmp in (2,):
-
-            if histogram is not None and cur_level < 4: 
-                # print("checking hist")
-                # print(cur_level, npath)
-                estimated_count = histogram[npath]
-                # print(estimated_count)
-
-                if estimated_count == 0:
-                    print(f"no points in this range according to histogram {npath}")
-                    # no points in this part of the cube, for sure
-                    continue
-                elif estimated_count < 100_000:
-                    # limited points in this part of the cube, for sure
-                    print(npath, "has less than 100'000 points:", estimated_count, 'no refinement')
-                    paths.append(npath)
-                    continue
-
-
-            # FIXME: re-introduce maxdepth argument !
-            if cur_level < max_depth and cur_level < mbits_needed:
-                # we have not yet reached the lowest level, recurse
-                childs = []
-                for ncode in range(2**ndims):
-                    new_path = npath + (ncode, )
-                    hpath = _nchunks_to_hchunks(new_path, mbits_needed, ndims)
-                    hcode = _hchunks_key(hpath, mbits_needed, ndims)
-                    childs.append((hcode, new_path))
-                childs.sort(key=itemgetter(0))
-                for child in childs:
-                    stack.append(child[1])
-            else:
-                # we are not allowed to go further, so use this partial
-                # overlapping range as is
-                paths.append(npath)
-        # -- disjoint, we do not need to process further this path down the tree
-        elif ndcmp in (-1,):
-            continue
-    #
-    result = []
-    while paths:
-        npath = paths.pop()
-        hpath = _nchunks_to_hchunks(npath, mbits_needed, ndims)
-        start = _hchunks_key(hpath, mbits_needed, ndims)
-        side_at_depth = 2**(mbits_needed - len(npath))
-        range_size = side_at_depth**ndims
-        end = start + range_size
-        result.append((start, end))
-    #
-    return result
-
-
-
-# if __name__ == "__main__":
-#    pass
-#    ndims = 2
-#    for i in range(4):
-#        for j in range(4):
-#            print [i, j], _nchunks_to_hchunks([i, j], ndims)
-
-#    print hquery(ndbox((1, 1, 1, 1), (3, 3, 3, 3)))
-
-#    print hquery(query=ndbox([0, 2], [2, 4]))
-#    print nchunk_table()
-
-#    print _nchunks_key((1,3,0), 3, 2)
-
-#    import doctest
-#    doctest.testmod()
-#    test()
-
-#    hchunk_table()
-#    nchunk_table()
-
-#    nquery(query=ndbox([0, 0], [8, 8]))
-#    nquery(query=ndbox([1, 1], [4, 4]))
-#    nquery(query=ndbox([1, 1], [3, 6]))
-#    nquery(query=ndbox([1, 1], [3, 3]))
-
-#    print "***", _nchunks_hchunks((1,0,), 2)
-#    print "***", _hchunks_key((1,0,), 2, 2)
-
-##    for i in range(64):
-##        print i, hdec(i, 2)
-#    hquery_new(query=ndbox([0, 0], [1, 1]))
-#    hquery_new(query=ndbox([1, 1], [4, 4]))
-#    hquery_new(query=ndbox([0, 1], [2, 4]))
-#    hquery(query=ndbox([1, 1], [4, 4]))
-#    hquery(query=ndbox([1, 1], [3, 6]))
-#    hquery(query=ndbox([1, 1], [3, 3]))

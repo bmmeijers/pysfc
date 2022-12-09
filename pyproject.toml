@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pysfc"
+version = "0.0.1"
+authors = [
+  { name="Martijn Meijers", email="b.m.meijers@tudelft.nl" },
+]
+description = "Space Filling Curves for clustering, indexing, querying & retrieval of nD Points [Python]"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+homepage = "https://github.com/bmmeijers/pysfc"
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov"
+]
